@@ -11,14 +11,16 @@ import sys
 import os
 import json
 from model import PerformanceNet
+import argparse
+import os
 cuda = torch.device("cuda")
 
 class hyperparams(object):
-    def __init__(self):
-        self.instrument = sys.argv[1]
-        self.train_epoch = int(sys.argv[2]) #default = 300
-        self.test_freq = int(sys.argv[3])  #default = 10 
-        self.exp_name = sys.argv[4]
+    def __init__(self, args):
+        self.instrument = args.instrument
+        self.train_epoch = args.epochs
+        self.test_freq = args.test_freq
+        self.exp_name = args.exp_name
         self.iter_train_loss = []
         self.iter_test_loss = []
         self.loss_history = []
@@ -26,8 +28,8 @@ class hyperparams(object):
         self.best_loss = 1e10 
         self.best_epoch = 0
 
-def Process_Data(instr, exp_dir):
-    dataset = h5py.File('data/train_data.hdf5','r')     
+def Process_Data(instr, exp_dir, data_dir):
+    dataset = h5py.File(os.path.join(data_dir, 'train_data.hdf5'),'r')
     score = dataset['{}_pianoroll'.format(instr)][:]
     spec = dataset['{}_spec'.format(instr)][:]
     onoff = dataset['{}_onoff'.format(instr)][:]
@@ -86,8 +88,8 @@ def test(model, epoch, test_loader, scheduler, iter_test_loss):
         return test_loss
 
 
-def main():    
-    hp = hyperparams()
+def main(args):
+    hp = hyperparams(args)
 
     try:
         exp_root = os.path.join(os.path.abspath('./'),'experiments')
@@ -104,7 +106,7 @@ def main():
     model.zero_grad()
     optimizer.zero_grad()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    train_loader, test_loader = Process_Data(hp.instrument, exp_dir)
+    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir)
     print ('start training')
     for epoch in range(hp.train_epoch):
         loss = train(model, epoch, train_loader, optimizer,hp.iter_train_loss)
@@ -121,4 +123,12 @@ def main():
        
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-data-dir", type=str, help="directory where musicnet.npz is")
+    parser.add_argument("-instrument", type=str)
+    parser.add_argument("-epochs", type=int)
+    parser.add_argument("-test-freq", type=int)
+    parser.add_argument("-exp-name", type=str)
+    args = parser.parse_args()
+    
+    main(args)
