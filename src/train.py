@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument("-epochs", type=int)
     parser.add_argument("-test-freq", type=int)
     parser.add_argument("-exp-name", type=str)
-    parser.add_argument("-cuda-flag", type=int, default=0)
+    parser.add_argument("--cuda-flag", type=int, default=0)
     args = parser.parse_args()
     
     if args.cuda_flag == 1:
