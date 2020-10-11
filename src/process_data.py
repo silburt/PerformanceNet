@@ -6,6 +6,8 @@ from scipy import fft
 import pickle
 import h5py
 import sys
+import argparse
+import os
 
 
 class hyperparams(object):
@@ -25,7 +27,7 @@ class hyperparams(object):
 hp = hyperparams()
 
 
-def get_data(): 
+def get_data(data_dir):
     '''
     
     Extract the desired solo data from the dataset.
@@ -34,8 +36,9 @@ def get_data():
         Process cello, violin, flute 
     
     '''
-    dataset = np.load(open('data/musicnet.npz','rb'), encoding = 'latin1')
-    train_data = h5py.File('data/train_data.hdf5', 'w') 
+    
+    dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1')
+    train_data = h5py.File(os.path.join(data_dir, 'train_data.hdf5'), 'w')
 
     for inst in hp.instrument:
         print ('------ Processing ' + inst + ' ------')
@@ -119,10 +122,14 @@ def process_data(X, Y, inst):
 
 
 
-def main():  
-    get_data()
+def main(args):
+    get_data(args.data_dir)
    
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-data-dir", type=str, help="directory where musicnet.npz is")
+    args = parser.parse_args()
+    
+    main(args)
     
