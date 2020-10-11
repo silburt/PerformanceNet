@@ -115,7 +115,7 @@ def main(args):
     os.makedirs(exp_dir)
 
     model = PerformanceNet()
-    if args.cuda == 1:
+    if args.cuda_flag == 1:
         model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     model.zero_grad()
