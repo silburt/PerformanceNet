@@ -13,7 +13,6 @@ import json
 from model import PerformanceNet
 import argparse
 import os
-#cuda = torch.device("cuda")
 
 class hyperparams(object):
     def __init__(self, args):
@@ -28,7 +27,7 @@ class hyperparams(object):
         self.best_loss = 1e10 
         self.best_epoch = 0
 
-def Process_Data(instr, exp_dir, data_dir):
+def Process_Data(instr, exp_dir, data_dir, cuda_flag):
     dataset = h5py.File(os.path.join(data_dir, 'train_data.hdf5'),'r')
     score = dataset['{}_pianoroll'.format(instr)][:]
     spec = dataset['{}_spec'.format(instr)][:]
@@ -44,22 +43,32 @@ def Process_Data(instr, exp_dir, data_dir):
     np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
     np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
     
-    train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
+    if cuda_flag == 1:
+        train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
+        test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
+    else:
+        train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
+        test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
+        
     train_loader = utils.DataLoader(train_dataset, batch_size=16, shuffle=True)
-    test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
     test_loader = utils.DataLoader(test_dataset, batch_size=16, shuffle=True) 
     
     return train_loader, test_loader
 
-def train(model, epoch, train_loader, optimizer,iter_train_loss):
+def train(model, epoch, train_loader, optimizer,iter_train_loss, cuda_flag):
     model.train()
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):        
         optimizer.zero_grad()
         split = torch.split(data, 128, dim=1)
-        y_pred = model(split[0],split[1])
         loss_function = nn.MSELoss()
-        loss = loss_function(y_pred, target)
+        if cuda_flag == 1:
+            y_pred = model(split[0].cuda(),split[1].cuda())
+            loss = loss_function(y_pred, target.cuda())
+        else:
+            y_pred = model(split[0], split[1])
+            loss = loss_function(y_pred, target)
+        
         loss.backward()
         iter_train_loss.append(loss.item())
         train_loss += loss
@@ -71,15 +80,20 @@ def train(model, epoch, train_loader, optimizer,iter_train_loss):
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, train_loss/ len(train_loader.dataset)))
     return train_loss/ len(train_loader.dataset)
 
-def test(model, epoch, test_loader, scheduler, iter_test_loss):
+
+def test(model, epoch, test_loader, scheduler, iter_test_loss, cuda_flag):
     with torch.no_grad():
         model.eval()
         test_loss = 0
         for idx, (data, target) in enumerate(test_loader):
             split = torch.split(data,128,dim = 1)
-            y_pred = model(split[0],split[1])
-            loss_function = nn.MSELoss() 
-            loss = loss_function(y_pred,target)
+            loss_function = nn.MSELoss()
+            if cuda_flag == 1:
+                y_pred = model(split[0].cuda(),split[1].cuda())
+                loss = loss_function(y_pred, target.cuda())
+            else:
+                y_pred = model(split[0], split[1])
+                loss = loss_function(y_pred,target)
             iter_test_loss.append(loss.item())
             test_loss += loss    
         test_loss/= len(test_loader.dataset)
@@ -101,18 +115,19 @@ def main(args):
     os.makedirs(exp_dir)
 
     model = PerformanceNet()
-    #model.cuda()
+    if args.cuda == 1:
+        model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     model.zero_grad()
     optimizer.zero_grad()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir)
+    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.cuda_flag)
     print ('start training')
     for epoch in range(hp.train_epoch):
-        loss = train(model, epoch, train_loader, optimizer,hp.iter_train_loss)
+        loss = train(model, epoch, train_loader, optimizer,hp.iter_train_loss, args.cuda_flag)
         hp.loss_history.append(loss.item())
         if epoch % hp.test_freq == 0:
-            test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss)
+            test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss, args.cuda_flag)
             hp.test_loss_history.append(test_loss.item())
             if test_loss < hp.best_loss:         
                 torch.save({'epoch': epoch + 1, 'state_dict': model.state_dict(), 'optimizer' : optimizer.state_dict()}, os.path.join(exp_dir, 'checkpoint-{}.tar'.format(str(epoch + 1 ))))
@@ -129,6 +144,10 @@ if __name__ == "__main__":
     parser.add_argument("-epochs", type=int)
     parser.add_argument("-test-freq", type=int)
     parser.add_argument("-exp-name", type=str)
+    parser.add_argument("-cuda-flag", type=int, default=0)
     args = parser.parse_args()
+    
+    if args.cuda_flag == 1:
+        cuda = torch.device("cuda")
     
     main(args)
