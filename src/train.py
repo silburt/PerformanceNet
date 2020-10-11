@@ -33,7 +33,7 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag):
     spec = dataset['{}_spec'.format(instr)][:]
     onoff = dataset['{}_onoff'.format(instr)][:]
     score = np.concatenate((score, onoff),axis = -1)
-    score = np.transpose(score,(0,2,1))
+    score = np.transpose(score, (0,2,1))
 
     X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
     
@@ -43,6 +43,9 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag):
     np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
     np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
     
+    # TODO: Need to figure out how to add the spectrogram as an input as well to the training data
+    # then you can test your model changes
+
     if cuda_flag == 1:
         train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
         test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
@@ -54,6 +57,7 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag):
     test_loader = utils.DataLoader(test_dataset, batch_size=16, shuffle=True) 
     
     return train_loader, test_loader
+
 
 def train(model, epoch, train_loader, optimizer,iter_train_loss, cuda_flag):
     model.train()
@@ -86,10 +90,10 @@ def test(model, epoch, test_loader, scheduler, iter_test_loss, cuda_flag):
         model.eval()
         test_loss = 0
         for idx, (data, target) in enumerate(test_loader):
-            split = torch.split(data,128,dim = 1)
+            split = torch.split(data, 128, dim=1)
             loss_function = nn.MSELoss()
             if cuda_flag == 1:
-                y_pred = model(split[0].cuda(),split[1].cuda())
+                y_pred = model(split[0].cuda(), split[1].cuda())
                 loss = loss_function(y_pred, target.cuda())
             else:
                 y_pred = model(split[0], split[1])
@@ -124,7 +128,7 @@ def main(args):
     train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.cuda_flag)
     print ('start training')
     for epoch in range(hp.train_epoch):
-        loss = train(model, epoch, train_loader, optimizer,hp.iter_train_loss, args.cuda_flag)
+        loss = train(model, epoch, train_loader, optimizer, hp.iter_train_loss, args.cuda_flag)
         hp.loss_history.append(loss.item())
         if epoch % hp.test_freq == 0:
             test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss, args.cuda_flag)
@@ -139,11 +143,11 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-data-dir", type=str, help="directory where musicnet.npz is")
-    parser.add_argument("-instrument", type=str)
-    parser.add_argument("-epochs", type=int)
-    parser.add_argument("-test-freq", type=int)
-    parser.add_argument("-exp-name", type=str)
+    parser.add_argument("-data-dir", type=str, default='/Users/arisilburt/Machine_Learning/music/PerformanceNet_ari/data/', help="directory where musicnet.npz is")
+    parser.add_argument("-instrument", type=str, default='cello')
+    parser.add_argument("-epochs", type=int, default=1)
+    parser.add_argument("-test-freq", type=int, default=1)
+    parser.add_argument("-exp-name", type=str, default='cello_test')
     parser.add_argument("--cuda-flag", type=int, default=0)
     args = parser.parse_args()
     
