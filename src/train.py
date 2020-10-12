@@ -150,7 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("-epochs", type=int, default=1)
     parser.add_argument("-test-freq", type=int, default=1)
     parser.add_argument("-exp-name", type=str, default='cello_test')
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--cuda-flag", type=int, default=0)
     args = parser.parse_args()
     
