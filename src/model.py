@@ -179,6 +179,7 @@ class PerformanceNet(nn.Module):
     def __init__(self, depth=5, start_channels=128, start_channels_audio=1025):
         super(PerformanceNet, self).__init__()
         self.depth = depth
+        self.audio_depth = self.depth - 3   # memory restrictions at the moment
         self.start_channels = start_channels  
         self.start_channels_audio = start_channels_audio
         self.construct_layers()
@@ -198,7 +199,7 @@ class PerformanceNet(nn.Module):
         
         # down convs audio
         self.down_convs_audio = []
-        for i in range(self.depth):
+        for i in range(self.audio_depth):
             ins_audio = self.start_channels_audio if i == 0 else outs_audio
             outs_audio = self.start_channels_audio * (2 ** (i+1))
             pooling = True if i < self.depth-1 else False
