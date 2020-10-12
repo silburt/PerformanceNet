@@ -101,6 +101,7 @@ class DenseConcat(nn.Module):
     def forward(self, midi_embed, audio_embed):
         # TODO: add some dropout
         print("shapes!")
+        midi_embed = F.pad(midi_embed, (2, 2))
         print(audio_embed.shape, midi_embed.shape)
         #x = crop_and_concat(midi_embed, audio_embed)
         x = torch.cat((audio_embed, midi_embed), 1)
@@ -183,7 +184,7 @@ class PerformanceNet(nn.Module):
         self.start_channels = start_channels  
         self.start_channels_audio = start_channels_audio
         self.construct_layers()
-        self.reset_params()               
+        self.reset_params()
         
     #@staticmethod  
     def construct_layers(self):
