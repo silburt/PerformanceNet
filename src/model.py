@@ -172,10 +172,11 @@ class MBRBlock(nn.Module):
 
 
 class PerformanceNet(nn.Module):
-    def __init__(self, depth = 5, start_channels = 128):
+    def __init__(self, depth=5, start_channels=128, start_channels_audio=1025):
         super(PerformanceNet, self).__init__()
         self.depth = depth
         self.start_channels = start_channels  
+        self.start_channels_audio = start_channels_audio
         self.construct_layers()
         self.reset_params()               
         
@@ -191,6 +192,16 @@ class PerformanceNet(nn.Module):
             self.down_convs.append(DC)  
         self.down_convs = nn.ModuleList(self.down_convs)
         
+        # down convs audio
+        self.down_convs_audio = []
+        for i in range(self.depth):
+            ins_audio = self.start_channels_audio if i == 0 else outs_audio
+            outs_audio = self.start_channels_audio * (2 ** (i+1))
+            pooling = True if i < self.depth-1 else False
+            DC = DownConv(ins_audio, outs_audio, pooling=pooling, block_id=i)
+            self.down_convs_audio.append(DC)
+        self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
+
         # dense layers - these dimensions will need to be adjusted
         self.dense_concat = DenseConcat(outs, 4096, 4096)
 
@@ -209,7 +220,7 @@ class PerformanceNet(nn.Module):
         self.MBRBlock4 = MBRBlock(1024,16)
         
         # final layers
-        self.lastconv = nn.ConvTranspose1d(1024,1025,kernel_size=3, stride=1, padding=1)
+        self.lastconv = nn.ConvTranspose1d(1024, 1025, kernel_size=3, stride=1, padding=1)
         self.lrelu = nn.LeakyReLU(0.01)
 
         # onset/offset decoder

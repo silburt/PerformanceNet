@@ -78,7 +78,7 @@ def process_data(X, Y, inst):
 
     def process_score(Y, step, hop):
         # A.S. 128 dims for the number of notes
-        # wps*5 = windows_per_second * 5 is the length of time (arbitrary), length "T" in the paper
+        # wps*5 = windows_per_second * 5 is the length of sample time as stated in the paper (arbitrary), length "T" in the paper
         score = np.zeros((hp.wps*5, 128))
         onset = np.zeros(score.shape)    
         offset = np.zeros(score.shape) 
