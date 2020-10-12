@@ -32,7 +32,7 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag):
     score = dataset['{}_pianoroll'.format(instr)][:]
     spec = dataset['{}_spec'.format(instr)][:]
     onoff = dataset['{}_onoff'.format(instr)][:]
-    score = np.concatenate((score, onoff),axis = -1)
+    score = np.concatenate((score, onoff), axis = -1)
     score = np.transpose(score, (0,2,1))
 
     X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
@@ -59,7 +59,7 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag):
     return train_loader, test_loader
 
 
-def train(model, epoch, train_loader, optimizer,iter_train_loss, cuda_flag):
+def train(model, epoch, train_loader, optimizer, iter_train_loss, cuda_flag):
     model.train()
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):        
@@ -67,10 +67,10 @@ def train(model, epoch, train_loader, optimizer,iter_train_loss, cuda_flag):
         split = torch.split(data, 128, dim=1)
         loss_function = nn.MSELoss()
         if cuda_flag == 1:
-            y_pred = model(split[0].cuda(),split[1].cuda())
+            y_pred = model(split[0].cuda(), target.cuda(), split[1].cuda())
             loss = loss_function(y_pred, target.cuda())
         else:
-            y_pred = model(split[0], split[1])
+            y_pred = model(split[0], target, split[1])  # A.S. adding target (spectrogram) to input as extra conditioning
             loss = loss_function(y_pred, target)
         
         loss.backward()
@@ -82,7 +82,7 @@ def train(model, epoch, train_loader, optimizer,iter_train_loss, cuda_flag):
             print ('Train Epoch: {} [{}/{} ({:.0f}%)]\t Loss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset), 100. * batch_idx/len(train_loader), loss.item()/len(data)))
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, train_loss/ len(train_loader.dataset)))
-    return train_loss/ len(train_loader.dataset)
+    return train_loss / len(train_loader.dataset)
 
 
 def test(model, epoch, test_loader, scheduler, iter_test_loss, cuda_flag):
@@ -130,6 +130,8 @@ def main(args):
     for epoch in range(hp.train_epoch):
         loss = train(model, epoch, train_loader, optimizer, hp.iter_train_loss, args.cuda_flag)
         hp.loss_history.append(loss.item())
+        
+        # test
         if epoch % hp.test_freq == 0:
             test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss, args.cuda_flag)
             hp.test_loss_history.append(test_loss.item())
