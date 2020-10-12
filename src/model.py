@@ -91,7 +91,7 @@ class UpConv(nn.Module):
 
 class DenseConcat(nn.Module):
     # allows conditioning on the input audio as well
-    def __init__(self, in_channels, intermediate_channels, out_channels):
+    def __init__(self, in_channels, out_channels, intermediate_channels):
         super(DenseConcat, self).__init__()
 
         self.fc1 = nn.Linear(in_channels, intermediate_channels)
@@ -202,8 +202,8 @@ class PerformanceNet(nn.Module):
             self.down_convs_audio.append(DC)
         self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
 
-        # dense layers - these dimensions will need to be adjusted
-        self.dense_concat = DenseConcat(outs, 4096, 4096)
+        # dense layers 
+        self.dense_concat = DenseConcat(outs_audio + outs, outs, 2 * outs)
 
         # up convs
         self.up_convs = []
@@ -249,7 +249,7 @@ class PerformanceNet(nn.Module):
 
         # audio spectrograms
         #encoder_layer_outputs_audio = []
-        for i, module in enumerate(self.down_convs):
+        for i, module in enumerate(self.down_convs_audio):
             x_audio, before_pool = module(x_audio)
             #encoder_layer_outputs_audio.append(before_pool)    # I dont think we need to condition audio in u-net
 

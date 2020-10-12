@@ -27,7 +27,7 @@ class hyperparams(object):
         self.best_loss = 1e10 
         self.best_epoch = 0
 
-def Process_Data(instr, exp_dir, data_dir, cuda_flag):
+def Process_Data(instr, exp_dir, data_dir, cuda_flag, batch_size=16):
     dataset = h5py.File(os.path.join(data_dir, 'train_data.hdf5'),'r')
     score = dataset['{}_pianoroll'.format(instr)][:]
     spec = dataset['{}_spec'.format(instr)][:]
@@ -53,8 +53,8 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag):
         train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
         test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
         
-    train_loader = utils.DataLoader(train_dataset, batch_size=16, shuffle=True)
-    test_loader = utils.DataLoader(test_dataset, batch_size=16, shuffle=True) 
+    train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
     
     return train_loader, test_loader
 
@@ -125,7 +125,7 @@ def main(args):
     model.zero_grad()
     optimizer.zero_grad()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.cuda_flag)
+    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.cuda_flag, args.batch_size)
     print ('start training')
     for epoch in range(hp.train_epoch):
         loss = train(model, epoch, train_loader, optimizer, hp.iter_train_loss, args.cuda_flag)
@@ -150,6 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("-epochs", type=int, default=1)
     parser.add_argument("-test-freq", type=int, default=1)
     parser.add_argument("-exp-name", type=str, default='cello_test')
+    parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--cuda-flag", type=int, default=0)
     args = parser.parse_args()
     
