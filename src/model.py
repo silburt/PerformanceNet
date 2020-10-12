@@ -30,14 +30,6 @@ def upconv1x2(in_channels, out_channels, kernel):
         padding=1
         )
 
-def crop_and_concat(upsampled, bypass):
-    c = (bypass.size()[2] - upsampled.size()[2]) // 2
-    bypass = F.pad(bypass, (-c, -c))
-    if bypass.shape[2] > upsampled.shape[2]:
-        bypass =  F.pad(bypass, (0, -(bypass.shape[2] - upsampled.shape[2])))  
-    else:
-        bypass =  F.pad(bypass, ((0, bypass.shape[2] - upsampled.shape[2]) ))
-    return torch.cat((upsampled, bypass), 1)
 
 class DownConv(nn.Module):
     def __init__(self, in_channels, out_channels, block_id, pooling = True):
@@ -76,13 +68,22 @@ class UpConv(nn.Module):
         self.conv2 = conv1x3(self.out_channels + self.cond_channels, self.out_channels) 
         self.conv2_BN = nn.InstanceNorm1d(self.out_channels)
  
+    def crop_and_concat(self, upsampled, bypass):
+        c = (bypass.size()[2] - upsampled.size()[2]) // 2
+        bypass = F.pad(bypass, (-c, -c))
+        if bypass.shape[2] > upsampled.shape[2]:
+            bypass =  F.pad(bypass, (0, -(bypass.shape[2] - upsampled.shape[2])))  
+        else:
+            bypass =  F.pad(bypass, ((0, bypass.shape[2] - upsampled.shape[2]) ))
+        return torch.cat((upsampled, bypass), 1)
+
     def forward(self, res, dec, cond):
         x = self.activation(self.upconv_BN(self.upconv(dec)))
-        x = crop_and_concat(x, res)
+        x = self.crop_and_concat(x, res)
         x = self.activation(self.conv1_BN(self.conv1(x)))
 
         if self.cond_channels:
-            x = crop_and_concat(x, cond)
+            x = self.crop_and_concat(x, cond)
 
         x = self.conv2(x)
         x = self.activation(self.conv2_BN(x))
@@ -99,7 +100,10 @@ class DenseConcat(nn.Module):
 
     def forward(self, midi_embed, audio_embed):
         # TODO: add some dropout
-        x = crop_and_concat(midi_embed, audio_embed)
+        print("shapes!")
+        print(audio_embed.shape, midi_embed.shape)
+        #x = crop_and_concat(midi_embed, audio_embed)
+        x = torch.cat((audio_embed, midi_embed), 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return x
