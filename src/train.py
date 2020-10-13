@@ -14,6 +14,12 @@ from model import PerformanceNet
 import argparse
 import os
 
+CUDA_FLAG = 0
+if torch.cuda.is_available():
+    cuda = torch.device("cuda")
+    CUDA_FLAG = 1
+
+
 class hyperparams(object):
     def __init__(self, args):
         self.instrument = args.instrument
@@ -27,7 +33,7 @@ class hyperparams(object):
         self.best_loss = 1e10 
         self.best_epoch = 0
 
-def Process_Data(instr, exp_dir, data_dir, cuda_flag, batch_size=16):
+def Process_Data(instr, exp_dir, data_dir, batch_size=16):
     dataset = h5py.File(os.path.join(data_dir, 'train_data.hdf5'),'r')
     score = dataset['{}_pianoroll'.format(instr)][:]
     spec = dataset['{}_spec'.format(instr)][:]
@@ -46,7 +52,7 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag, batch_size=16):
     # TODO: Need to figure out how to add the spectrogram as an input as well to the training data
     # then you can test your model changes
 
-    if cuda_flag == 1:
+    if CUDA_FLAG == 1:
         train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
         test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
     else:
@@ -59,14 +65,14 @@ def Process_Data(instr, exp_dir, data_dir, cuda_flag, batch_size=16):
     return train_loader, test_loader
 
 
-def train(model, epoch, train_loader, optimizer, iter_train_loss, cuda_flag):
+def train(model, epoch, train_loader, optimizer, iter_train_loss):
     model.train()
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):        
         optimizer.zero_grad()
         split = torch.split(data, 128, dim=1)
         loss_function = nn.MSELoss()
-        if cuda_flag == 1:
+        if CUDA_FLAG == 1:
             y_pred = model(split[0].cuda(), target.cuda(), split[1].cuda())
             loss = loss_function(y_pred, target.cuda())
         else:
@@ -85,14 +91,14 @@ def train(model, epoch, train_loader, optimizer, iter_train_loss, cuda_flag):
     return train_loss / len(train_loader.dataset)
 
 
-def test(model, epoch, test_loader, scheduler, iter_test_loss, cuda_flag):
+def test(model, epoch, test_loader, scheduler, iter_test_loss):
     with torch.no_grad():
         model.eval()
         test_loss = 0
         for idx, (data, target) in enumerate(test_loader):
             split = torch.split(data, 128, dim=1)
             loss_function = nn.MSELoss()
-            if cuda_flag == 1:
+            if CUDA_FLAG == 1:
                 y_pred = model(split[0].cuda(), split[1].cuda())
                 loss = loss_function(y_pred, target.cuda())
             else:
@@ -119,21 +125,21 @@ def main(args):
     os.makedirs(exp_dir)
 
     model = PerformanceNet()
-    if args.cuda_flag == 1:
+    if CUDA_FLAG == 1:
         model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     model.zero_grad()
     optimizer.zero_grad()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.cuda_flag, args.batch_size)
+    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.batch_size)
     print ('start training')
     for epoch in range(hp.train_epoch):
-        loss = train(model, epoch, train_loader, optimizer, hp.iter_train_loss, args.cuda_flag)
+        loss = train(model, epoch, train_loader, optimizer, hp.iter_train_loss)
         hp.loss_history.append(loss.item())
         
         # test
         if epoch % hp.test_freq == 0:
-            test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss, args.cuda_flag)
+            test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss)
             hp.test_loss_history.append(test_loss.item())
             if test_loss < hp.best_loss:         
                 torch.save({'epoch': epoch + 1, 'state_dict': model.state_dict(), 'optimizer' : optimizer.state_dict()}, os.path.join(exp_dir, 'checkpoint-{}.tar'.format(str(epoch + 1 ))))
@@ -151,10 +157,6 @@ if __name__ == "__main__":
     parser.add_argument("-test-freq", type=int, default=1)
     parser.add_argument("-exp-name", type=str, default='cello_test')
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--cuda-flag", type=int, default=0)
     args = parser.parse_args()
-    
-    if args.cuda_flag == 1:
-        cuda = torch.device("cuda")
     
     main(args)
