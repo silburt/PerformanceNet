@@ -92,20 +92,16 @@ class UpConv(nn.Module):
 
 class DenseConcat(nn.Module):
     # allows conditioning on the input audio as well
-    # TODO: this only does 1d, need to extend to 2d...
-    def __init__(self, in_channels, out_channels, intermediate_channels):
+    # TODO: this only does 1d, maybe extend to 2d...?
+    def __init__(self, in_channels, intermediate_channels, out_channels):
         super(DenseConcat, self).__init__()
-
-        self.fc1 = nn.Linear((in_channels, intermediate_channels), )
+        self.fc1 = nn.Linear(in_channels, intermediate_channels)
         self.fc2 = nn.Linear(intermediate_channels, out_channels)
 
     def forward(self, midi_embed, audio_embed):
         # TODO: add some dropout
-        print("shapes!")
-        midi_embed = F.pad(midi_embed, (0, 0, 2, 2)) # hacky pad to make audio/midi concat...
-        print(audio_embed.shape, midi_embed.shape)
-        #x = crop_and_concat(midi_embed, audio_embed)
-        x = torch.cat((audio_embed, midi_embed), 1)
+        audio_embed = F.pad(audio_embed, (0, 0, -2, -2))  # hacky negative pad to make audio/midi concat...
+        x = torch.cat((audio_embed, midi_embed), 2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return x
@@ -210,7 +206,8 @@ class PerformanceNet(nn.Module):
         self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
 
         # dense layers 
-        self.dense_concat = DenseConcat(outs_audio + outs, outs, 2 * outs)
+        # TODO: find smart way to set these 
+        self.dense_concat = DenseConcat(268, 53, 100)
 
         # up convs
         self.up_convs = []
@@ -261,7 +258,7 @@ class PerformanceNet(nn.Module):
             x_audio, before_pool = module(x_audio)
             #encoder_layer_outputs_audio.append(before_pool)    # I dont think we need to condition audio in u-net
 
-        # concat with dense layers - output is same dimension as encoder_layer_outputs_midi
+        # concat with dense layers - x output is same as x_midi
         x = self.dense_concat(x_midi, x_audio)
 
         Onoff_Conditions = self.onset_offset_encoder(cond)
