@@ -11,7 +11,7 @@ import pickle as pkl
 
 cuda = torch.device("cuda")
 
-def conv1x3(in_channels, out_channels, stride=1, padding=1, bias=True,groups=1):
+def conv1x3(in_channels, out_channels, stride=1, padding=1, bias=True, groups=1):
     return nn.Conv1d(
         in_channels,
         out_channels,
@@ -92,16 +92,17 @@ class UpConv(nn.Module):
 
 class DenseConcat(nn.Module):
     # allows conditioning on the input audio as well
+    # TODO: this only does 1d, need to extend to 2d...
     def __init__(self, in_channels, out_channels, intermediate_channels):
         super(DenseConcat, self).__init__()
 
-        self.fc1 = nn.Linear(in_channels, intermediate_channels)
+        self.fc1 = nn.Linear((in_channels, intermediate_channels), )
         self.fc2 = nn.Linear(intermediate_channels, out_channels)
 
     def forward(self, midi_embed, audio_embed):
         # TODO: add some dropout
         print("shapes!")
-        midi_embed = F.pad(midi_embed, (2, 2))
+        midi_embed = F.pad(midi_embed, (0, 0, 2, 2)) # hacky pad to make audio/midi concat...
         print(audio_embed.shape, midi_embed.shape)
         #x = crop_and_concat(midi_embed, audio_embed)
         x = torch.cat((audio_embed, midi_embed), 1)
@@ -254,6 +255,7 @@ class PerformanceNet(nn.Module):
             encoder_layer_outputs_midi.append(before_pool)
 
         # audio spectrograms
+        # TODO: mel-spectrograms instead, and more traditional convolutions I think - these are 1d convolutions...
         #encoder_layer_outputs_audio = []
         for i, module in enumerate(self.down_convs_audio):
             x_audio, before_pool = module(x_audio)
