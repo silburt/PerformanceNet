@@ -206,7 +206,9 @@ class PerformanceNet(nn.Module):
         self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
 
         # dense layers 
-        # TODO: find smart way to set these 
+        # TODO: find smart way to set these
+        # TODO: With new version of pytorch on Google Colab something here leads to an error...
+        # commenting this out and things run well!
         self.dense_concat = DenseConcat(268, 53, 100)
 
         # up convs

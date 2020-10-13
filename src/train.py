@@ -53,8 +53,10 @@ def Process_Data(instr, exp_dir, data_dir, batch_size=16):
     # then you can test your model changes
 
     if CUDA_FLAG == 1:
-        train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
-        test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
+        #train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
+        #test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
+        train_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_train), torch.cuda.FloatTensor(Y_train))
+        test_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_test), torch.cuda.FloatTensor(Y_test))
     else:
         train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
         test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
