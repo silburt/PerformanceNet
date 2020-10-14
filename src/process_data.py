@@ -17,7 +17,7 @@ class hyperparams(object):
         self.stride = 256 # 256 samples hop between windows    
         self.wps = 44100 // 256 # ~86 windows/second (for flute?)
         self.instrument = { 
-                            'cello': [2217, 2218, 2219, 2220 ,2221, 2222, 2293, 2294]#, 2295, 2296, 2297, 2298],
+                            'cello': [2217, 2218, 2219, 2220 ,2221, 2222, 2293, 2294],# 2295, 2296, 2297, 2298],
                             'violin': [2191, 2244, 2288, 2289, 2659],
                             'flute':[2202, 2203, 2204]
                             }
