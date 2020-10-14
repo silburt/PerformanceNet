@@ -42,7 +42,7 @@ def get_data(data_dir, inst):
     '''
     
     dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1', allow_pickle=True)
-    train_data = h5py.File(os.path.join(data_dir, f'train_data_{instrument}.hdf5'), 'w')
+    train_data = h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'w')
 
     #for inst in hp.instrument:
     print ('------ Processing ' + inst + ' ------')
