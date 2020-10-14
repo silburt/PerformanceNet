@@ -82,15 +82,15 @@ def get_data(data_dir, inst):
         for index, song in enumerate(hp.instrument[inst]): 
             audio, score = dataset[str(song)]
 
-            spec_list, score_list, onoff_list = process_data([audio],[score],inst)
+            spec_list, score_list, onoff_list = process_data([audio], [score], inst)
 
-            train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0]), axis = 0)
+            train_data[inst + "_spec"].resize((train_data[inst + "_spec"].shape[0] + spec_list.shape[0],) + spec_list.shape[1:])
             train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
 
-            train_data[inst + "_pianoroll"].resize(train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0]), axis = 0)
+            train_data[inst + "_pianoroll"].resize((train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0],) + score_list.shape[1:])
             train_data[inst + "_pianoroll"][-train_data[inst + "_pianoroll"].shape[0]:] = score_list
 
-            train_data[inst + "_onoff"].resize(train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0]), axis = 0)
+            train_data[inst + "_onoff"].resize((train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0],) + onoff_list.shape[1:])
             train_data[inst + "_onoff"][-train_data[inst + "_onoff"].shape[0]:] = onoff_list
 
             #train_data.create_dataset(inst + "_spec", data=spec_list)
