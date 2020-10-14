@@ -74,9 +74,9 @@ def get_data(data_dir, inst):
     
     with h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'a') as train_data:
         # get proper dataset chunk sizes
-        train_data.create_dataset(inst + "_spec", shape=(0, 1025, 860), dtype='float32', maxshape=(None, 1025, 860)) 
-        train_data.create_dataset(inst + "_pianoroll", shape=(0, 860, 128), dtype='float64', maxshape=(None, 860, 128)) 
-        train_data.create_dataset(inst + "_onoff", shape=(0, 860, 128), dtype='float64', maxshape=(None, 860, 128)) 
+        train_data.create_dataset(inst + "_spec", shape=(0, 1025, 860), dtype='float32', maxshape=(None,)) 
+        train_data.create_dataset(inst + "_pianoroll", shape=(0, 860, 128), dtype='float64', maxshape=(None,)) 
+        train_data.create_dataset(inst + "_onoff", shape=(0, 860, 128), dtype='float64', maxshape=(None,)) 
 
         print ('------ Processing ' + inst + ' ------')
         for index, song in enumerate(hp.instrument[inst]): 
@@ -84,13 +84,13 @@ def get_data(data_dir, inst):
 
             spec_list, score_list, onoff_list = process_data([audio], [score], inst)
 
-            train_data[inst + "_spec"].resize((train_data[inst + "_spec"].shape[0] + spec_list.shape[0],) + spec_list.shape[1:])
+            train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0], axis=0)
             train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
 
-            train_data[inst + "_pianoroll"].resize((train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0],) + score_list.shape[1:])
+            train_data[inst + "_pianoroll"].resize(train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0], axis=0)
             train_data[inst + "_pianoroll"][-train_data[inst + "_pianoroll"].shape[0]:] = score_list
 
-            train_data[inst + "_onoff"].resize((train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0],) + onoff_list.shape[1:])
+            train_data[inst + "_onoff"].resize(train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0], axis=0)
             train_data[inst + "_onoff"][-train_data[inst + "_onoff"].shape[0]:] = onoff_list
 
             #train_data.create_dataset(inst + "_spec", data=spec_list)
