@@ -41,7 +41,7 @@ def get_data(data_dir):
     
     '''
     
-    dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1')
+    dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1', allow_pickle=True)
     train_data = h5py.File(os.path.join(data_dir, 'train_data.hdf5'), 'w')
 
     for inst in hp.instrument:
@@ -121,10 +121,6 @@ def process_data(X, Y, inst):
             onoff_list.append(onoff)
 
     return np.array(spec_list), np.array(score_list), np.array(onoff_list)
-
-    
-
-
 
 
 def main(args):
