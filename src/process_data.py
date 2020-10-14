@@ -60,12 +60,14 @@ hp = hyperparams()
 #     train_data.create_dataset(inst + "_onoff", data=onoff_list)  
 
 
-def append_data(spec_list, score_list, onoff_list, train_data, index):
+def append_data(spec_list, score_list, onoff_list, train_data, inst, index):
     if index == 0:
+        print('creating datasets')
         train_data.create_dataset(inst + "_spec", data=spec_list, dtype='float32', maxshape=(None,)) 
         train_data.create_dataset(inst + "_pianoroll", data=score_list, dtype='float64', maxshape=(None,)) 
         train_data.create_dataset(inst + "_onoff", data=onoff_list, dtype='float64', maxshape=(None,)) 
     else:
+        print('appending to datasets')
         train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0], axis=0)
         train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
 
@@ -98,7 +100,7 @@ def get_data(data_dir, inst):
 
             spec_list, score_list, onoff_list = process_data([audio], [score], inst)
 
-            append_data(spec_list, score_list, onoff_list, train_data, index)
+            append_data(spec_list, score_list, onoff_list, train_data, inst, index)
 
 
             #train_data.create_dataset(inst + "_spec", data=spec_list)
