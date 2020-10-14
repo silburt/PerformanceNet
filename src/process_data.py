@@ -63,9 +63,9 @@ hp = hyperparams()
 def append_data(spec_list, score_list, onoff_list, train_data, inst, index):
     if index == 0:
         print('creating datasets')
-        train_data.create_dataset(inst + "_spec", data=spec_list, dtype='float32', maxshape=(None,)) 
-        train_data.create_dataset(inst + "_pianoroll", data=score_list, dtype='float64', maxshape=(None,)) 
-        train_data.create_dataset(inst + "_onoff", data=onoff_list, dtype='float64', maxshape=(None,)) 
+        train_data.create_dataset(inst + "_spec", data=spec_list, dtype='float32', maxshape=(None,) + spec_list.shape[1:], chunks=True) 
+        train_data.create_dataset(inst + "_pianoroll", data=score_list, dtype='float64', maxshape=(None,) + score_list.shape[1:], chunks=True) 
+        train_data.create_dataset(inst + "_onoff", data=onoff_list, dtype='float64', maxshape=(None,) + onoff_list.shape[1:], chunks=True) 
     else:
         print('appending to datasets')
         train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0], axis=0)
