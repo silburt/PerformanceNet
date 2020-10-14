@@ -11,6 +11,8 @@ from model import PerformanceNet
 import librosa
 from tqdm import tqdm
 import sys
+
+
 class AudioSynthesizer():
     def __init__(self, checkpoint, exp_dir, data_source):
         self.exp_dir = exp_dir
