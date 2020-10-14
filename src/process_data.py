@@ -17,11 +17,11 @@ class hyperparams(object):
         self.stride = 256 # 256 samples hop between windows    
         self.wps = 44100 // 256 # ~86 windows/second (for flute?)
         self.instrument = { 
-                            'cello': [2217, 2218, 2219, 2220 ,2221, 2222, 2293, 2294, 2295, 2296, 2297, 2298],
+                            'cello': [2217, 2218, 2219, 2220 ,2221, 2222, 2293, 2294]#, 2295, 2296, 2297, 2298],
                             'violin': [2191, 2244, 2288, 2289, 2659],
                             'flute':[2202, 2203, 2204]
                             }
-        #print("warning!! using only a subset of music")
+        print("warning!! using only a subset of music")
         
         # A.S. each song is chopped into windows, and I *think* hop is the window length?
         # Q: Why do the different instruments have different hop lengths??
@@ -31,7 +31,7 @@ class hyperparams(object):
 hp = hyperparams()
 
 
-def get_data(data_dir):
+def get_data(data_dir, inst):
     '''
     
     Extract the desired solo data from the dataset.
@@ -42,21 +42,21 @@ def get_data(data_dir):
     '''
     
     dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1', allow_pickle=True)
-    train_data = h5py.File(os.path.join(data_dir, 'train_data.hdf5'), 'w')
+    train_data = h5py.File(os.path.join(data_dir, f'train_data_{instrument}.hdf5'), 'w')
 
-    for inst in hp.instrument:
-        print ('------ Processing ' + inst + ' ------')
-        score = []
-        audio = []
-        for song in hp.instrument[inst]: 
-            a,b = dataset[str(song)]
-            audio.append(a)
-            score.append(b)
+    #for inst in hp.instrument:
+    print ('------ Processing ' + inst + ' ------')
+    score = []
+    audio = []
+    for song in hp.instrument[inst]: 
+        a,b = dataset[str(song)]
+        audio.append(a)
+        score.append(b)
 
-        spec_list, score_list, onoff_list = process_data(audio,score,inst)
-        train_data.create_dataset(inst + "_spec", data=spec_list)
-        train_data.create_dataset(inst + "_pianoroll", data=score_list)
-        train_data.create_dataset(inst + "_onoff", data=onoff_list)  
+    spec_list, score_list, onoff_list = process_data(audio,score,inst)
+    train_data.create_dataset(inst + "_spec", data=spec_list)
+    train_data.create_dataset(inst + "_pianoroll", data=score_list)
+    train_data.create_dataset(inst + "_onoff", data=onoff_list)  
 
 
 def process_data(X, Y, inst):
@@ -124,12 +124,13 @@ def process_data(X, Y, inst):
 
 
 def main(args):
-    get_data(args.data_dir)
+    get_data(args.data_dir, args.instrument)
    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-data-dir", type=str, help="directory where musicnet.npz is")
+    parser.add_argument("-instrument", type=str, help="type of instrument to process data for")
     args = parser.parse_args()
     
     main(args)

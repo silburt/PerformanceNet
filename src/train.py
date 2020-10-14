@@ -33,8 +33,8 @@ class hyperparams(object):
         self.best_loss = 1e10 
         self.best_epoch = 0
 
-def Process_Data(instr, exp_dir, data_dir, batch_size=16):
-    dataset = h5py.File(os.path.join(data_dir, 'train_data.hdf5'),'r')
+def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
+    dataset = h5py.File(os.path.join(data_dir, f'train_data_{instr}.hdf5'),'r')
     score = dataset['{}_pianoroll'.format(instr)][:]
     spec = dataset['{}_spec'.format(instr)][:]
     onoff = dataset['{}_onoff'.format(instr)][:]
