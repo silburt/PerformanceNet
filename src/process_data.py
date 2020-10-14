@@ -31,6 +31,34 @@ class hyperparams(object):
 hp = hyperparams()
 
 
+# def get_data(data_dir, inst):
+#     '''
+    
+#     Extract the desired solo data from the dataset.
+    
+#     Default: 
+#         Process cello, violin, flute 
+    
+#     '''
+    
+#     dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1', allow_pickle=True)
+#     train_data = h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'w')
+
+
+#     #for inst in hp.instrument:
+#     print ('------ Processing ' + inst + ' ------')
+#     score = []
+#     audio = []
+#     for song in hp.instrument[inst]: 
+#         a,b = dataset[str(song)]
+#         audio.append(a)
+#         score.append(b)
+
+#     spec_list, score_list, onoff_list = process_data(audio,score,inst)
+#     train_data.create_dataset(inst + "_spec", data=spec_list)
+#     train_data.create_dataset(inst + "_pianoroll", data=score_list)
+#     train_data.create_dataset(inst + "_onoff", data=onoff_list)  
+
 def get_data(data_dir, inst):
     '''
     
@@ -42,21 +70,32 @@ def get_data(data_dir, inst):
     '''
     
     dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1', allow_pickle=True)
-    train_data = h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'w')
+    #train_data = h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'w')
+    
+    with h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'a') as train_data:
+        # get proper dataset chunk sizes
+        train_data.create_dataset(inst + "_spec", shape=(0, 1025, 860), dtype='float32', maxshape=(None, 1025, 860)) 
+        train_data.create_dataset(inst + "_pianoroll", shape=(0, 860, 128), dtype='float64', maxshape=(None, 860, 128)) 
+        train_data.create_dataset(inst + "_onoff", shape=(0, 860, 128), dtype='float64', maxshape=(None, 860, 128)) 
 
-    #for inst in hp.instrument:
-    print ('------ Processing ' + inst + ' ------')
-    score = []
-    audio = []
-    for song in hp.instrument[inst]: 
-        a,b = dataset[str(song)]
-        audio.append(a)
-        score.append(b)
+        print ('------ Processing ' + inst + ' ------')
+        for index, song in enumerate(hp.instrument[inst]): 
+            audio, score = dataset[str(song)]
 
-    spec_list, score_list, onoff_list = process_data(audio,score,inst)
-    train_data.create_dataset(inst + "_spec", data=spec_list)
-    train_data.create_dataset(inst + "_pianoroll", data=score_list)
-    train_data.create_dataset(inst + "_onoff", data=onoff_list)  
+            spec_list, score_list, onoff_list = process_data([audio],[score],inst)
+
+            train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0]), axis = 0)
+            train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
+
+            train_data[inst + "_pianoroll"].resize(train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0]), axis = 0)
+            train_data[inst + "_pianoroll"][-train_data[inst + "_pianoroll"].shape[0]:] = score_list
+
+            train_data[inst + "_onoff"].resize(train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0]), axis = 0)
+            train_data[inst + "_onoff"][-train_data[inst + "_onoff"].shape[0]:] = onoff_list
+
+            #train_data.create_dataset(inst + "_spec", data=spec_list)
+            #train_data.create_dataset(inst + "_pianoroll", data=score_list)
+            #train_data.create_dataset(inst + "_onoff", data=onoff_list)  
 
 
 def process_data(X, Y, inst):
@@ -109,7 +148,7 @@ def process_data(X, Y, inst):
     hop = hp.hop_inst[inst]
     for i in range(num_songs):
         song_length = len(X[i])
-        num_spec = (song_length) // (hop * hp.stride)   # A.S. number of spectrograms
+        num_spec = (song_length) // (hop * hp.stride)   # A.S. number of spectrograms per song
         print ('{} song {} has {} windows'.format(inst, i, num_spec))
 
         for step in range(num_spec - 30):   # A.S. why -30?
