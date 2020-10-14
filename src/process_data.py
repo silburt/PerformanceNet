@@ -59,6 +59,23 @@ hp = hyperparams()
 #     train_data.create_dataset(inst + "_pianoroll", data=score_list)
 #     train_data.create_dataset(inst + "_onoff", data=onoff_list)  
 
+
+def append_data(spec_list, score_list, onoff_list, train_data, index):
+    if index == 0:
+        train_data.create_dataset(inst + "_spec", data=spec_list, dtype='float32', maxshape=(None,)) 
+        train_data.create_dataset(inst + "_pianoroll", data=score_list, dtype='float64', maxshape=(None,)) 
+        train_data.create_dataset(inst + "_onoff", data=onoff_list, dtype='float64', maxshape=(None,)) 
+    else:
+        train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0], axis=0)
+        train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
+
+        train_data[inst + "_pianoroll"].resize(train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0], axis=0)
+        train_data[inst + "_pianoroll"][-train_data[inst + "_pianoroll"].shape[0]:] = score_list
+
+        train_data[inst + "_onoff"].resize(train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0], axis=0)
+        train_data[inst + "_onoff"][-train_data[inst + "_onoff"].shape[0]:] = onoff_list
+
+
 def get_data(data_dir, inst):
     '''
     
@@ -73,10 +90,7 @@ def get_data(data_dir, inst):
     #train_data = h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'w')
     
     with h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'a') as train_data:
-        # get proper dataset chunk sizes
-        train_data.create_dataset(inst + "_spec", shape=(0, 1025, 860), dtype='float32', maxshape=(None,)) 
-        train_data.create_dataset(inst + "_pianoroll", shape=(0, 860, 128), dtype='float64', maxshape=(None,)) 
-        train_data.create_dataset(inst + "_onoff", shape=(0, 860, 128), dtype='float64', maxshape=(None,)) 
+        # get proper dataset chunk size
 
         print ('------ Processing ' + inst + ' ------')
         for index, song in enumerate(hp.instrument[inst]): 
@@ -84,14 +98,8 @@ def get_data(data_dir, inst):
 
             spec_list, score_list, onoff_list = process_data([audio], [score], inst)
 
-            train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0], axis=0)
-            train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
+            append_data(spec_list, score_list, onoff_list, train_data, index)
 
-            train_data[inst + "_pianoroll"].resize(train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0], axis=0)
-            train_data[inst + "_pianoroll"][-train_data[inst + "_pianoroll"].shape[0]:] = score_list
-
-            train_data[inst + "_onoff"].resize(train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0], axis=0)
-            train_data[inst + "_onoff"][-train_data[inst + "_onoff"].shape[0]:] = onoff_list
 
             #train_data.create_dataset(inst + "_spec", data=spec_list)
             #train_data.create_dataset(inst + "_pianoroll", data=score_list)
