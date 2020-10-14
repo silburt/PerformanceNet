@@ -60,7 +60,11 @@ hp = hyperparams()
 #     train_data.create_dataset(inst + "_onoff", data=onoff_list)  
 
 
-def append_data(spec_list, score_list, onoff_list, train_data, inst, index):
+def write_h5py(train_data, spec_list, score_list, onoff_list, inst, index):
+    '''
+    Incrementally add to an h5py file, so that eveything can fit in memory
+    '''
+    # https://stackoverflow.com/questions/47072859/how-to-append-data-to-one-specific-dataset-in-a-hdf5-file-with-h5py
     if index == 0:
         print('creating datasets')
         train_data.create_dataset(inst + "_spec", data=spec_list, dtype='float32', maxshape=(None,) + spec_list.shape[1:], chunks=True) 
@@ -69,13 +73,13 @@ def append_data(spec_list, score_list, onoff_list, train_data, inst, index):
     else:
         print('appending to datasets')
         train_data[inst + "_spec"].resize(train_data[inst + "_spec"].shape[0] + spec_list.shape[0], axis=0)
-        train_data[inst + "_spec"][-train_data[inst + "_spec"].shape[0]:] = spec_list
+        train_data[inst + "_spec"][-spec_list.shape[0]:] = spec_list
 
         train_data[inst + "_pianoroll"].resize(train_data[inst + "_pianoroll"].shape[0] + score_list.shape[0], axis=0)
-        train_data[inst + "_pianoroll"][-train_data[inst + "_pianoroll"].shape[0]:] = score_list
+        train_data[inst + "_pianoroll"][-score_list.shape[0]:] = score_list
 
         train_data[inst + "_onoff"].resize(train_data[inst + "_onoff"].shape[0] + onoff_list.shape[0], axis=0)
-        train_data[inst + "_onoff"][-train_data[inst + "_onoff"].shape[0]:] = onoff_list
+        train_data[inst + "_onoff"][-onoff_list.shape[0]:] = onoff_list
 
 
 def get_data(data_dir, inst):
@@ -89,8 +93,6 @@ def get_data(data_dir, inst):
     '''
     
     dataset = np.load(open(os.path.join(data_dir, 'musicnet.npz'),'rb'), encoding = 'latin1', allow_pickle=True)
-    #train_data = h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'w')
-    
     with h5py.File(os.path.join(data_dir, f'train_data_{inst}.hdf5'), 'a') as train_data:
         # get proper dataset chunk size
 
@@ -98,17 +100,12 @@ def get_data(data_dir, inst):
         for index, song in enumerate(hp.instrument[inst]): 
             audio, score = dataset[str(song)]
 
-            spec_list, score_list, onoff_list = process_data([audio], [score], inst)
+            spec_list, score_list, onoff_list = process_data(audio, score, inst, index)
 
-            append_data(spec_list, score_list, onoff_list, train_data, inst, index)
-
-
-            #train_data.create_dataset(inst + "_spec", data=spec_list)
-            #train_data.create_dataset(inst + "_pianoroll", data=score_list)
-            #train_data.create_dataset(inst + "_onoff", data=onoff_list)  
+            write_h5py(train_data, spec_list, score_list, onoff_list, inst, index)
 
 
-def process_data(X, Y, inst):
+def process_data(X, Y, inst, song_no):
     '''
     Data Pre-processing
         
@@ -120,7 +117,7 @@ def process_data(X, Y, inst):
 
     '''
     def process_spectrum(X, step, hop):
-        audio = X[i][(step * hop * hp.stride): (step * hop * hp.stride) + ((hp.wps*5 - 1)* hp.stride)] 
+        audio = X[(step * hop * hp.stride): (step * hop * hp.stride) + ((hp.wps*5 - 1)* hp.stride)] 
         spec = librosa.stft(audio, n_fft= hp.n_fft, hop_length = hp.stride)
         magnitude = np.log1p(np.abs(spec)**2)
         return magnitude
@@ -135,7 +132,7 @@ def process_data(X, Y, inst):
         for window in range(score.shape[0]):
             
             #For score, set all notes to 1 if they are played at this window timestep
-            labels = Y[i][(step * hop + window) * hp.stride]
+            labels = Y[(step * hop + window) * hp.stride]
             for label in labels:
                 score[window,label.data[1]] = 1
         
@@ -154,20 +151,19 @@ def process_data(X, Y, inst):
     spec_list=[]
     score_list=[]
     onoff_list=[]
-    num_songs = len(X)
     hop = hp.hop_inst[inst]
-    for i in range(num_songs):
-        song_length = len(X[i])
-        num_spec = (song_length) // (hop * hp.stride)   # A.S. number of spectrograms per song
-        print ('{} song {} has {} windows'.format(inst, i, num_spec))
 
-        for step in range(num_spec - 30):   # A.S. why -30?
-            if step % 50 == 0:
-                print ('{} steps of {} song {} has been done'.format(step,inst,i))        
-            spec_list.append(process_spectrum(X,step,hop))
-            score, onoff = process_score(Y,step,hop)
-            score_list.append(score)
-            onoff_list.append(onoff)
+    song_length = len(X)
+    num_spec = (song_length) // (hop * hp.stride)   # A.S. number of spectrograms per song
+    print ('{} song {} has {} windows'.format(inst, song_no, num_spec))
+
+    for step in range(num_spec - 30):   # A.S. why -30?
+        if step % 50 == 0:
+            print ('{} steps of {} song {} has been done'.format(step, inst, song_no))        
+        spec_list.append(process_spectrum(X, step, hop))
+        score, onoff = process_score(Y, step, hop)
+        score_list.append(score)
+        onoff_list.append(onoff)
 
     return np.array(spec_list), np.array(score_list), np.array(onoff_list)
 

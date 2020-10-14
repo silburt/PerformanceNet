@@ -33,6 +33,16 @@ class hyperparams(object):
         self.best_loss = 1e10 
         self.best_epoch = 0
 
+
+class IterableDataset(utils.IterableDataset):
+    # https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
+    def __init__(self, data):
+        self.data = data
+
+    def __iter__(self):
+        return iter(self.data)
+
+
 def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
     dataset = h5py.File(os.path.join(data_dir, f'train_data_{instr}.hdf5'),'r')
     score = dataset['{}_pianoroll'.format(instr)][:]
@@ -60,9 +70,14 @@ def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
     else:
         train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
         test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
-        
-    train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
+    
+    train_iterable = IterableDataset(train_dataset)
+    test_iterable = IterableDataset(test_dataset)
+
+    train_loader = utils.DataLoader(train_iterable, batch_size=batch_size, shuffle=True)
+    test_loader = utils.DataLoader(test_iterable, batch_size=batch_size, shuffle=True)
+    #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
     
     return train_loader, test_loader
 
