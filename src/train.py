@@ -34,52 +34,103 @@ class hyperparams(object):
         self.best_epoch = 0
 
 
-class IterableDataset(utils.IterableDataset):
-    # https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
-    def __init__(self, data):
-        self.data = data
+# class IterableDataset(utils.IterableDataset):
+#     # https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
+#     def __init__(self, data):
+#         self.data = data
 
-    def __iter__(self):
-        return iter(self.data)
+#     def __iter__(self):
+#         return iter(self.data)
+
+class Dataseth5py(torch.utils.data.Dataset):
+    # https://discuss.pytorch.org/t/how-to-speed-up-the-data-loader/13740/3
+    def __init__(self, in_file, instr):
+        super(dataset_h5, self).__init__()
+
+        self.dataset = h5py.File(in_file, 'r')
+        self.score = dataset['{}_pianoroll'.format(instr)]
+        self.spec = dataset['{}_spec'.format(instr)]
+        self.onoff = dataset['{}_onoff'.format(instr)]
+        self.instr = instr
+
+        self.file = h5py.File(in_file, 'r')
+        self.n_data = self.spec.shape[0]
+
+    def __getitem__(self, index):
+        spec = self.spec[index]
+        score = self.score[index]
+        onoff = self.onoff[index]
+        score = np.concatenate((score, onoff), axis = -1)
+        score = np.transpose(score, (0, 2, 1))
+
+        if CUDA_FLAG == 1:
+            tensor_dataset = utils.TensorDataset(torch.cuda.FloatTensor(score), torch.cuda.FloatTensor(spec))
+        else:
+            tensor_dataset = utils.TensorDataset(torch.Tensor(score), torch.Tensor(spec))
+        return tensor_dataset
+
+    def __len__(self):
+        return self.n_data
 
 
 def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
-    dataset = h5py.File(os.path.join(data_dir, f'train_data_{instr}.hdf5'),'r')
-    score = dataset['{}_pianoroll'.format(instr)][:]
-    spec = dataset['{}_spec'.format(instr)][:]
-    onoff = dataset['{}_onoff'.format(instr)][:]
-    score = np.concatenate((score, onoff), axis = -1)
-    score = np.transpose(score, (0,2,1))
+    dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr)
 
-    X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
-    
-    test_data_dir = os.path.join(exp_dir,'test_data')
-    os.makedirs(test_data_dir)
-    
-    np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
-    np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
-    
-    # TODO: Need to figure out how to add the spectrogram as an input as well to the training data
-    # then you can test your model changes
+    #### All this can hopefully be moved inside the class ####
 
-    if CUDA_FLAG == 1:
-        #train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
-        #test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
-        train_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_train), torch.cuda.FloatTensor(Y_train))
-        test_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_test), torch.cuda.FloatTensor(Y_test))
-    else:
-        train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
-        test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
-    
-    train_iterable = IterableDataset(train_dataset)
-    test_iterable = IterableDataset(test_dataset)
 
-    train_loader = utils.DataLoader(train_iterable, batch_size=batch_size, shuffle=True)
-    test_loader = utils.DataLoader(test_iterable, batch_size=batch_size, shuffle=True)
+    #X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
+    
+    #test_data_dir = os.path.join(exp_dir,'test_data')
+    #os.makedirs(test_data_dir)
+    
+    #np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
+    #np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
+
+    #### All this can hopefully be moved inside the class ####
+
+    train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    test_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
     
     return train_loader, test_loader
+
+
+# def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
+#     dataset = h5py.File(os.path.join(data_dir, f'train_data_{instr}.hdf5'),'r')
+#     score = dataset['{}_pianoroll'.format(instr)][:]
+#     spec = dataset['{}_spec'.format(instr)][:]
+#     onoff = dataset['{}_onoff'.format(instr)][:]
+#     score = np.concatenate((score, onoff), axis = -1)
+#     score = np.transpose(score, (0,2,1))
+
+#     X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
+    
+#     test_data_dir = os.path.join(exp_dir,'test_data')
+#     os.makedirs(test_data_dir)
+    
+#     np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
+#     np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
+    
+#     # TODO: Need to figure out how to add the spectrogram as an input as well to the training data
+#     # then you can test your model changes
+
+#     if CUDA_FLAG == 1:
+#         #train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
+#         #test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
+#         train_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_train), torch.cuda.FloatTensor(Y_train))
+#         test_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_test), torch.cuda.FloatTensor(Y_test))
+#     else:
+#         train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
+#         test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
+
+#     train_loader = utils.DataLoader(train_iterable, batch_size=batch_size, shuffle=True)
+#     test_loader = utils.DataLoader(test_iterable, batch_size=batch_size, shuffle=True)
+#     #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+#     #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
+    
+#     return train_loader, test_loader
 
 
 def train(model, epoch, train_loader, optimizer, iter_train_loss):
