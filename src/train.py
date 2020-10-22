@@ -124,11 +124,11 @@ def test(model, epoch, test_loader, scheduler, iter_test_loss):
             split = torch.split(data, 128, dim=1)
             loss_function = nn.MSELoss()
             if CUDA_FLAG == 1:
-                y_pred = model(split[0].cuda(), split[1].cuda())
+                y_pred = model(split[0].cuda(), target.cuda(), split[1].cuda())
                 loss = loss_function(y_pred, target.cuda())
             else:
-                y_pred = model(split[0], split[1])
-                loss = loss_function(y_pred,target)
+                y_pred = model(split[0], target, split[1])
+                loss = loss_function(y_pred, target)
             iter_test_loss.append(loss.item())
             test_loss += loss    
         test_loss/= len(test_loader.dataset)

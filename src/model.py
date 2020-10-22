@@ -201,7 +201,6 @@ class PerformanceNet(nn.Module):
         for i in range(self.depth):
             ins = self.start_audio_channels if i == 0 else outs
             outs = min(self.start_audio_channels * (2 ** (i+1)), 4096)
-            print('ins, outs', ins, outs)
             pooling = True if i < self.depth-1 else False
             DC = DownConv(ins, outs, pooling=pooling, block_id=i)
             self.down_convs_audio.append(DC)  
@@ -258,7 +257,6 @@ class PerformanceNet(nn.Module):
         # audio spectrograms - standard convnets
         # TODO: mel-spectrograms instead, and more traditional convolutions
         for i, module in enumerate(self.down_convs_audio):
-            print('x_audio shape', x_audio.shape)
             x_audio, before_pool = module(x_audio)
 
         # concat with dense layers - x output is same as x_midi
