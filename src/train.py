@@ -37,19 +37,25 @@ class hyperparams(object):
 
 class Dataseth5py(torch.utils.data.Dataset):
     # https://discuss.pytorch.org/t/how-to-speed-up-the-data-loader/13740/3
-    def __init__(self, in_file, instr, n_read=100):
+    def __init__(self, in_file, instr, n_read=None):
         super(Dataseth5py, self).__init__()
 
         self.dataset = h5py.File(in_file, 'r')
 
-        # TODO - the big issue is you need to optimize how to read data into memory from h5py
+        # TODO: the big issue is you need to optimize how to read data into memory from h5py
         # loading one-by-one is way too slow (a few seconds vs. microseconds). Note that the 
         # rest of the profiling times are: concat/transpose ~ 0.005s, FloatTensor ~ 0.02 
         # (and thus, after this loading issue is solved FloatTensor becomes the bottleneck unless it 
         # can be moved to the main train() function and be applied to batches vs individual items here)
-        self.score = self.dataset['{}_pianoroll'.format(instr)][:n_read]
-        self.spec = self.dataset['{}_spec'.format(instr)][:n_read]
-        self.onoff = self.dataset['{}_onoff'.format(instr)][:n_read]
+        if n_read is not None:
+            self.score = self.dataset['{}_pianoroll'.format(instr)][:n_read]
+            self.spec = self.dataset['{}_spec'.format(instr)][:n_read]
+            self.onoff = self.dataset['{}_onoff'.format(instr)][:n_read]
+        else:
+            self.score = self.dataset['{}_pianoroll'.format(instr)][:]
+            self.spec = self.dataset['{}_spec'.format(instr)][:]
+            self.onoff = self.dataset['{}_onoff'.format(instr)][:]
+
         self.n_data = self.spec.shape[0]
 
     def __getitem__(self, index):
@@ -72,8 +78,8 @@ class Dataseth5py(torch.utils.data.Dataset):
         return self.n_data
 
 
-def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
-    dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr)
+def Process_Data(instr, exp_dir, data_dir, n_read=None, batch_size=16):
+    dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr, n_read)
 
     kwargs = {}
     train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
@@ -82,42 +88,6 @@ def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
     #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
     
     return train_loader, test_loader
-
-
-# def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
-#     dataset = h5py.File(os.path.join(data_dir, f'train_data_{instr}.hdf5'),'r')
-#     score = dataset['{}_pianoroll'.format(instr)][:]
-#     spec = dataset['{}_spec'.format(instr)][:]
-#     onoff = dataset['{}_onoff'.format(instr)][:]
-#     score = np.concatenate((score, onoff), axis = -1)
-#     score = np.transpose(score, (0,2,1))
-
-#     X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
-    
-#     test_data_dir = os.path.join(exp_dir,'test_data')
-#     os.makedirs(test_data_dir)
-    
-#     np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
-#     np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
-    
-#     # TODO: Need to figure out how to add the spectrogram as an input as well to the training data
-#     # then you can test your model changes
-
-#     if CUDA_FLAG == 1:
-#         #train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
-#         #test_dataset = utils.TensorDataset(torch.Tensor(X_test, device=cuda), torch.Tensor(Y_test,device=cuda))
-#         train_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_train), torch.cuda.FloatTensor(Y_train))
-#         test_dataset = utils.TensorDataset(torch.cuda.FloatTensor(X_test), torch.cuda.FloatTensor(Y_test))
-#     else:
-#         train_dataset = utils.TensorDataset(torch.Tensor(X_train), torch.Tensor(Y_train))
-#         test_dataset = utils.TensorDataset(torch.Tensor(X_test), torch.Tensor(Y_test))
-
-#     train_loader = utils.DataLoader(train_iterable, batch_size=batch_size, shuffle=True)
-#     test_loader = utils.DataLoader(test_iterable, batch_size=batch_size, shuffle=True)
-#     #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-#     #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
-    
-#     return train_loader, test_loader
 
 
 def train(model, epoch, train_loader, optimizer, iter_train_loss):
@@ -186,7 +156,7 @@ def main(args):
     model.zero_grad()
     optimizer.zero_grad()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.batch_size)
+    train_loader, test_loader = Process_Data(hp.instrument, exp_dir, args.data_dir, args.n_read, args.batch_size)
     print ('start training')
     for epoch in range(hp.train_epoch):
         loss = train(model, epoch, train_loader, optimizer, hp.iter_train_loss)
@@ -211,6 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("-epochs", type=int, default=1)
     parser.add_argument("-test-freq", type=int, default=1)
     parser.add_argument("-exp-name", type=str, default='cello_test')
+    parser.add_argument("--n-read", type=int, default=None, help='How many data points to read (length of an epoch)')
     parser.add_argument("--batch-size", type=int, default=16)
     args = parser.parse_args()
     

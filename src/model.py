@@ -100,11 +100,11 @@ class DenseConcat(nn.Module):
 
     def forward(self, midi_embed, audio_embed):
         # TODO: add some dropout
-        print('midi/audio shapes!', midi_embed.shape, audio_embed.shape)
-        #audio_embed = F.pad(audio_embed, (0, 0, -2, -2))  # hacky negative pad to make audio/midi concat...
-        x = torch.cat((audio_embed, midi_embed), 2)
+        x = torch.cat((audio_embed, midi_embed), 1)
+        x = x.transpose(1, 2)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = x.transpose(2, 1)
         return x
 
 
@@ -207,17 +207,6 @@ class PerformanceNet(nn.Module):
             self.down_convs_audio.append(DC)  
         self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
 
-        # self.down_convs_audio = []
-        # for i in range(self.audio_depth):
-        #     ins_audio = self.start_audio_channels if i == 0 else outs_audio
-        #     outs_audio = max(ins_audio // 2, self.start_channels)
-        #     kernel_size = 5
-
-        #     DC = nn.Conv1d(ins_audio, outs_audio, kernel_size, stride=1, padding=0)
-        #     #DC = DownConv(ins_audio, outs_audio, pooling=pooling, block_id=i)
-        #     self.down_convs_audio.append(DC)
-        # self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
-
         # dense layers 
         in_channels = 4096 * 2
         intermediate_channels = int(4096 * 1.5)
@@ -272,13 +261,8 @@ class PerformanceNet(nn.Module):
             print('x_audio shape', x_audio.shape)
             x_audio, before_pool = module(x_audio)
 
-        # x_audio = x_audio.unsqueeze(1)  # add dummy channel dimension
-        # for i, module in enumerate(self.down_convs_audio):
-        #     x_audio = module(x_audio)
-
         # concat with dense layers - x output is same as x_midi
         x = self.dense_concat(x_midi, x_audio)
-        #x = x_midi
 
         Onoff_Conditions = self.onset_offset_encoder(cond)
 
