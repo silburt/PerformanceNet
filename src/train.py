@@ -35,17 +35,9 @@ class hyperparams(object):
         self.best_epoch = 0
 
 
-# class IterableDataset(utils.IterableDataset):
-#     # https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
-#     def __init__(self, data):
-#         self.data = data
-
-#     def __iter__(self):
-#         return iter(self.data)
-
 class Dataseth5py(torch.utils.data.Dataset):
     # https://discuss.pytorch.org/t/how-to-speed-up-the-data-loader/13740/3
-    def __init__(self, in_file, instr):
+    def __init__(self, in_file, instr, n_read=100):
         super(Dataseth5py, self).__init__()
 
         self.dataset = h5py.File(in_file, 'r')
@@ -55,9 +47,9 @@ class Dataseth5py(torch.utils.data.Dataset):
         # rest of the profiling times are: concat/transpose ~ 0.005s, FloatTensor ~ 0.02 
         # (and thus, after this loading issue is solved FloatTensor becomes the bottleneck unless it 
         # can be moved to the main train() function and be applied to batches vs individual items here)
-        self.score = self.dataset['{}_pianoroll'.format(instr)]
-        self.spec = self.dataset['{}_spec'.format(instr)]
-        self.onoff = self.dataset['{}_onoff'.format(instr)]
+        self.score = self.dataset['{}_pianoroll'.format(instr)][:n_read]
+        self.spec = self.dataset['{}_spec'.format(instr)][:n_read]
+        self.onoff = self.dataset['{}_onoff'.format(instr)][:n_read]
         self.n_data = self.spec.shape[0]
 
     def __getitem__(self, index):
@@ -83,6 +75,7 @@ class Dataseth5py(torch.utils.data.Dataset):
 def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
     dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr)
 
+    kwargs = {}
     train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
     test_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
     #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)

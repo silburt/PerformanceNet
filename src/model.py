@@ -174,12 +174,12 @@ class MBRBlock(nn.Module):
 
 
 class PerformanceNet(nn.Module):
-    def __init__(self, depth=5, start_channels=128, start_channels_audio=1025):
+    def __init__(self, depth=5, start_channels=128, start_audio_channels=1025):
         super(PerformanceNet, self).__init__()
         self.depth = depth
         self.audio_depth = self.depth - 3   # memory restrictions at the moment
-        self.start_channels = start_channels  
-        self.start_channels_audio = start_channels_audio
+        self.start_channels = start_channels 
+        self.start_audio_channels = start_audio_channels
         self.construct_layers()
         self.reset_params()
         
@@ -198,11 +198,11 @@ class PerformanceNet(nn.Module):
         # down convs audio
         self.down_convs_audio = []
         for i in range(self.audio_depth):
-            ins_audio = self.start_channels_audio if i == 0 else outs_audio
-            outs_audio = self.start_channels_audio * (2 ** (i+1))
-            kernel_size = 25
+            ins_audio = self.start_audio_channels if i == 0 else outs_audio
+            outs_audio = max(ins_audio // 2, self.start_channels)
+            kernel_size = 5
 
-            DC = nn.Conv2d(ins_audio, outs_audio, kernel_size, stride=1, padding=0)
+            DC = nn.Conv1d(ins_audio, outs_audio, kernel_size, stride=1, padding=0)
             #DC = DownConv(ins_audio, outs_audio, pooling=pooling, block_id=i)
             self.down_convs_audio.append(DC)
         self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
@@ -255,12 +255,11 @@ class PerformanceNet(nn.Module):
             x_midi, before_pool = module(x_midi)
             encoder_layer_outputs_midi.append(before_pool)
 
-        # audio spectrograms
+        # audio spectrograms - standard convnets
         # TODO: mel-spectrograms instead, and more traditional convolutions
-        #encoder_layer_outputs_audio = []
+        x_audio = x_audio.unsqueeze(1)  # add dummy channel dimension
         for i, module in enumerate(self.down_convs_audio):
-            x_audio, before_pool = module(x_audio)
-            #encoder_layer_outputs_audio.append(before_pool)    # I dont think we need to condition audio in u-net
+            x_audio = module(x_audio)
 
         # concat with dense layers - x output is same as x_midi
         x = self.dense_concat(x_midi, x_audio)
