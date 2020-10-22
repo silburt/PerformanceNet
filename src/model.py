@@ -220,7 +220,7 @@ class PerformanceNet(nn.Module):
 
         # dense layers 
         in_channels = 4096 * 2
-        intermediate_channels = 4096 * 1.5
+        intermediate_channels = int(4096 * 1.5)
         out_channels = 4096
         self.dense_concat = DenseConcat(in_channels, intermediate_channels, out_channels)
 
