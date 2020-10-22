@@ -13,6 +13,7 @@ import json
 from model import PerformanceNet
 import argparse
 import os
+import time
 
 CUDA_FLAG = 0
 if torch.cuda.is_available():
@@ -45,29 +46,35 @@ class hyperparams(object):
 class Dataseth5py(torch.utils.data.Dataset):
     # https://discuss.pytorch.org/t/how-to-speed-up-the-data-loader/13740/3
     def __init__(self, in_file, instr):
-        super(dataset_h5, self).__init__()
+        super(Dataseth5py, self).__init__()
 
         self.dataset = h5py.File(in_file, 'r')
-        self.score = dataset['{}_pianoroll'.format(instr)]
-        self.spec = dataset['{}_spec'.format(instr)]
-        self.onoff = dataset['{}_onoff'.format(instr)]
-        self.instr = instr
 
-        self.file = h5py.File(in_file, 'r')
+        # TODO - the big issue is you need to optimize how to read data into memory from h5py
+        # loading one-by-one is way too slow (a few seconds vs. microseconds). Note that the 
+        # rest of the profiling times are: concat/transpose ~ 0.005s, FloatTensor ~ 0.02 
+        # (and thus, after this loading issue is solved FloatTensor becomes the bottleneck unless it 
+        # can be moved to the main train() function and be applied to batches vs individual items here)
+        self.score = self.dataset['{}_pianoroll'.format(instr)]
+        self.spec = self.dataset['{}_spec'.format(instr)]
+        self.onoff = self.dataset['{}_onoff'.format(instr)]
         self.n_data = self.spec.shape[0]
 
     def __getitem__(self, index):
         spec = self.spec[index]
         score = self.score[index]
         onoff = self.onoff[index]
+
         score = np.concatenate((score, onoff), axis = -1)
-        score = np.transpose(score, (0, 2, 1))
+        score = np.transpose(score, (1, 0))
 
         if CUDA_FLAG == 1:
-            tensor_dataset = utils.TensorDataset(torch.cuda.FloatTensor(score), torch.cuda.FloatTensor(spec))
+            X = torch.cuda.FloatTensor(score)
+            y = torch.cuda.FloatTensor(spec)
         else:
-            tensor_dataset = utils.TensorDataset(torch.Tensor(score), torch.Tensor(spec))
-        return tensor_dataset
+            X = torch.Tensor(score)
+            y = torch.Tensor(spec)
+        return X, y
 
     def __len__(self):
         return self.n_data
@@ -76,21 +83,8 @@ class Dataseth5py(torch.utils.data.Dataset):
 def Process_Data(instr, exp_dir, data_dir,  batch_size=16):
     dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr)
 
-    #### All this can hopefully be moved inside the class ####
-
-
-    #X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2) 
-    
-    #test_data_dir = os.path.join(exp_dir,'test_data')
-    #os.makedirs(test_data_dir)
-    
-    #np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
-    #np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
-
-    #### All this can hopefully be moved inside the class ####
-
-    train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    test_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
+    test_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
     #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
     

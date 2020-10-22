@@ -200,8 +200,10 @@ class PerformanceNet(nn.Module):
         for i in range(self.audio_depth):
             ins_audio = self.start_channels_audio if i == 0 else outs_audio
             outs_audio = self.start_channels_audio * (2 ** (i+1))
-            pooling = True if i < self.depth-1 else False
-            DC = DownConv(ins_audio, outs_audio, pooling=pooling, block_id=i)
+            kernel_size = 25
+
+            DC = nn.Conv2d(ins_audio, outs_audio, kernel_size, stride=1, padding=0)
+            #DC = DownConv(ins_audio, outs_audio, pooling=pooling, block_id=i)
             self.down_convs_audio.append(DC)
         self.down_convs_audio = nn.ModuleList(self.down_convs_audio)
 
@@ -254,15 +256,15 @@ class PerformanceNet(nn.Module):
             encoder_layer_outputs_midi.append(before_pool)
 
         # audio spectrograms
-        # TODO: mel-spectrograms instead, and more traditional convolutions I think - these are 1d convolutions...
+        # TODO: mel-spectrograms instead, and more traditional convolutions
         #encoder_layer_outputs_audio = []
-        #for i, module in enumerate(self.down_convs_audio):
-        #    x_audio, before_pool = module(x_audio)
+        for i, module in enumerate(self.down_convs_audio):
+            x_audio, before_pool = module(x_audio)
             #encoder_layer_outputs_audio.append(before_pool)    # I dont think we need to condition audio in u-net
 
         # concat with dense layers - x output is same as x_midi
-        #x = self.dense_concat(x_midi, x_audio)
-        x = x_midi
+        x = self.dense_concat(x_midi, x_audio)
+        #x = x_midi
 
         Onoff_Conditions = self.onset_offset_encoder(cond)
 
