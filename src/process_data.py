@@ -105,6 +105,38 @@ def get_data(data_dir, inst):
             write_h5py(train_data, spec_list, score_list, onoff_list, inst, index)
 
 
+def process_spectrum(X, step, hop):
+    audio = X[(step * hop * hp.stride): (step * hop * hp.stride) + ((hp.wps*5 - 1)* hp.stride)] 
+    spec = librosa.stft(audio, n_fft= hp.n_fft, hop_length = hp.stride)
+    magnitude = np.log1p(np.abs(spec)**2)
+    return magnitude
+
+
+def process_score(Y, step, hop):
+    # A.S. 128 dims for the number of notes
+    # wps*5 = windows_per_second * 5 is the length of sample time as stated in the paper (arbitrary), length "T" in the paper
+    score = np.zeros((hp.wps*5, 128))
+    onset = np.zeros(score.shape)    
+    offset = np.zeros(score.shape) 
+
+    for window in range(score.shape[0]):
+        
+        #For score, set all notes to 1 if they are played at this window timestep
+        labels = Y[(step * hop + window) * hp.stride]
+        for label in labels:
+            score[window,label.data[1]] = 1
+    
+        #For onset/offset, set onset to 1 and offset to -1 
+        if window != 0:
+            onset[window][np.setdiff1d(score[window].nonzero(), score[window-1].nonzero())] = 1
+            offset[window][np.setdiff1d(score[window-1].nonzero(), score[window].nonzero())] = -1                    
+        else:
+            onset[window][score[window].nonzero()] = 1
+    
+    onset += offset 
+    return score, onset
+
+
 def process_data(X, Y, inst, song_no):
     '''
     Data Pre-processing
@@ -116,38 +148,6 @@ def process_data(X, Y, inst, song_no):
         Convert waveform into power spectrogram
 
     '''
-    def process_spectrum(X, step, hop):
-        audio = X[(step * hop * hp.stride): (step * hop * hp.stride) + ((hp.wps*5 - 1)* hp.stride)] 
-        spec = librosa.stft(audio, n_fft= hp.n_fft, hop_length = hp.stride)
-        magnitude = np.log1p(np.abs(spec)**2)
-        return magnitude
-
-    def process_score(Y, step, hop):
-        # A.S. 128 dims for the number of notes
-        # wps*5 = windows_per_second * 5 is the length of sample time as stated in the paper (arbitrary), length "T" in the paper
-        score = np.zeros((hp.wps*5, 128))
-        onset = np.zeros(score.shape)    
-        offset = np.zeros(score.shape) 
-
-        for window in range(score.shape[0]):
-            
-            #For score, set all notes to 1 if they are played at this window timestep
-            labels = Y[(step * hop + window) * hp.stride]
-            for label in labels:
-                score[window,label.data[1]] = 1
-        
-            #For onset/offset, set onset to 1 and offset to -1 
-            if window != 0:
-                onset[window][np.setdiff1d(score[window].nonzero(), score[window-1].nonzero())] = 1
-                offset[window][np.setdiff1d(score[window-1].nonzero(), score[window].nonzero())] = -1                    
-            else:
-                onset[window][score[window].nonzero()] = 1
-        
-        
-        onset += offset 
-        return score, onset
-    
-
     spec_list=[]
     score_list=[]
     onoff_list=[]

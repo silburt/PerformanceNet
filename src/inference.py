@@ -11,27 +11,30 @@ from model import PerformanceNet
 import librosa
 from tqdm import tqdm
 import sys
+from process_data import hyperparams
+
+process_hp = hyperparams()
 
 
 class AudioSynthesizer():
-    def __init__(self, checkpoint, exp_dir, data_source):
+    def __init__(self, checkpoint, exp_dir, midi_source, audio_source):
         self.exp_dir = exp_dir
         self.checkpoint = torch.load(os.path.join(exp_dir,checkpoint))
         self.sample_rate = 44100
         self.wps = 44100//256
-        self.data_source = data_source
+        self.midi_source = midi_source
+        self.audio_source = audio_source
                 
     def get_test_midi(self):
-
         X = np.load(os.path.join(self.exp_dir,'test_data/test_X.npy'))
         rand = np.random.randint(len(X),size=5)
         score = [X[i] for i in rand]
         return torch.Tensor(score).cuda()
 
-    def process_custom_midi(self, midi_filename):
-
+    def process_custom_midi_and_audio(self, midi_filename, audio_filename):
+        # process midi
         midi_dir = os.path.join(self.exp_dir,'midi')
-        midi = pretty_midi.PrettyMIDI(os.path.join(midi_dir,midi_filename))    
+        midi = pretty_midi.PrettyMIDI(os.path.join(midi_dir, midi_filename))    
         pianoroll = midi.get_piano_roll(fs=self.wps).T
         pianoroll[pianoroll.nonzero()] = 1
         onoff = np.zeros(pianoroll.shape) 
@@ -42,24 +45,24 @@ class AudioSynthesizer():
                 onoff[i][np.setdiff1d(pianoroll[i-1].nonzero(), pianoroll[i].nonzero())] = -1
                 onoff[i][np.setdiff1d(pianoroll[i].nonzero(), pianoroll[i-1].nonzero())] = 1 
         
-        return pianoroll, onoff
+        # process audio
+        audio = librosa.core.load(audio_filename)
+        spec = librosa.stft(audio, n_fft=hp.n_fft, hop_length=hp.stride)
+        magnitude = np.log1p(np.abs(spec)**2)
+        return pianoroll, onoff, magnitude
 
 
     def inference(self):
         model = PerformanceNet().cuda()
         model.load_state_dict(self.checkpoint['state_dict'])
 
-        if self.data_source == 'TEST_DATA':
-            score = self.get_test_midi()
-            score, onoff = torch.split(score, 128, dim=1)
-        else:
-            score, onoff = self.process_custom_midi(self.data_source)
+        score, onoff, spec = self.process_custom_midi_and_audio(self.midi_source, self.audio_source)
                    
         print ('Inferencing spectrogram......')
 
         with torch.no_grad():
             model.eval()    
-            test_results = model(score, onoff)
+            test_results = model(score, spec, onoff)
             test_results = test_results.cpu().numpy()
  
         output_dir = self.create_output_dir()
@@ -110,11 +113,12 @@ class AudioSynthesizer():
 
 def main():
     exp_dir = os.path.join(os.path.abspath('./experiments'), sys.argv[1]) # which experiment to test
-    data_source = sys.argv[2] # test with testing data or customized data    
+    midi_source = sys.argv[2] # test with testing data or customized data  
+    audio_source = sys.argv[3]  
     with open(os.path.join(exp_dir,'hyperparams.json'), 'r') as hpfile:
         hp = json.load(hpfile)
     checkpoints = 'checkpoint-{}.tar'.format(hp['best_epoch'])
-    AudioSynth = AudioSynthesizer(checkpoints, exp_dir, data_source) 
+    AudioSynth = AudioSynthesizer(checkpoints, exp_dir, midi_source, audio_source) 
     AudioSynth.inference()
 
 

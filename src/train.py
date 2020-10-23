@@ -83,10 +83,9 @@ def Process_Data(instr, exp_dir, data_dir, n_read=None, batch_size=16):
 
     kwargs = {}
     train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
-    test_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
-    #train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    #test_loader = utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=True) 
-    
+
+    # TODO: This needs to be an *actual* test set
+    test_loader = utils.DataLoader(dataset, batch_size=batch_size)
     return train_loader, test_loader
 
 
@@ -166,11 +165,12 @@ def main(args):
         if epoch % hp.test_freq == 0:
             test_loss = test(model, epoch, test_loader, scheduler, hp.iter_test_loss)
             hp.test_loss_history.append(test_loss.item())
-            if test_loss < hp.best_loss:         
+            if test_loss < hp.best_loss:
+                print("saving model")         
                 torch.save({'epoch': epoch + 1, 'state_dict': model.state_dict(), 'optimizer' : optimizer.state_dict()}, os.path.join(exp_dir, 'checkpoint-{}.tar'.format(str(epoch + 1 ))))
                 hp.best_loss = test_loss.item()    
                 hp.best_epoch = epoch + 1    
-                with open(os.path.join(exp_dir,'hyperparams.json'), 'w') as outfile:   
+                with open(os.path.join(exp_dir, 'hyperparams.json'), 'w') as outfile:   
                     json.dump(hp.__dict__, outfile)
        
 
