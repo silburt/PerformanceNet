@@ -20,7 +20,7 @@ process_hp = hyperparams()
 class AudioSynthesizer():
     def __init__(self, checkpoint, exp_dir, midi_source, audio_source):
         self.exp_dir = exp_dir
-        self.checkpoint = torch.load(os.path.join(exp_dir,checkpoint))
+        self.checkpoint = torch.load(os.path.join(exp_dir, checkpoint))
         self.sample_rate = 44100
         self.wps = 44100//256
         self.midi_source = midi_source
@@ -47,10 +47,17 @@ class AudioSynthesizer():
                 onoff[i][np.setdiff1d(pianoroll[i].nonzero(), pianoroll[i-1].nonzero())] = 1 
         
         # process audio
-        audio = librosa.core.load(audio_filename)
-        spec = librosa.stft(audio, n_fft=hp.n_fft, hop_length=hp.stride)
+        audio, sr = librosa.core.load(audio_filename)
+        spec = librosa.stft(audio, n_fft=process_hp.n_fft, hop_length=process_hp.stride)
         magnitude = np.log1p(np.abs(spec)**2)
-        return pianoroll, onoff, magnitude
+
+        # convert to Tensors
+        pianoroll = torch.cuda.FloatTensor(pianoroll)
+        onoff = torch.cuda.FloatTensor(onoff)
+        spec = torch.cuda.FloatTensor(magnitude)
+        #X = torch.Tensor(score)
+        #y = torch.Tensor(spec)
+        return pianoroll, onoff, spec
 
 
     def inference(self):
