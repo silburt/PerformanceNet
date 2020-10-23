@@ -112,13 +112,17 @@ class AudioSynthesizer():
 
 
 def main():
-    exp_dir = os.path.join(os.path.abspath('./experiments'), sys.argv[1]) # which experiment to test
-    midi_source = sys.argv[2] # test with testing data or customized data  
-    audio_source = sys.argv[3]  
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-exp-name", type=str, required=True)
+    parser.add_argument("-midi-source", type=str, required=True)
+    parser.add_argument("-audio-source", type=str, required=True)
+    args = parser.parse_args()
+
+    exp_dir = os.path.join(os.path.abspath('./experiments'), args.exp_name) # which experiment to test
     with open(os.path.join(exp_dir,'hyperparams.json'), 'r') as hpfile:
         hp = json.load(hpfile)
     checkpoints = 'checkpoint-{}.tar'.format(hp['best_epoch'])
-    AudioSynth = AudioSynthesizer(checkpoints, exp_dir, midi_source, audio_source) 
+    AudioSynth = AudioSynthesizer(checkpoints, exp_dir, args.midi_source, args.audio_source) 
     AudioSynth.inference()
 
 
