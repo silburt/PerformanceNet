@@ -1,7 +1,7 @@
 import numpy as np
-import librosa.output
+#import librosa.output
 import librosa
-from intervaltree import Interval,IntervalTree
+from intervaltree import Interval, IntervalTree
 from scipy import fft 
 import pickle
 import h5py
@@ -173,9 +173,12 @@ def main(args):
    
 
 if __name__ == "__main__":
+    ROOT_DIR = '/Users/arisilburt/Machine_Learning/music/PerformanceNet_ari'
     parser = argparse.ArgumentParser()
-    parser.add_argument("-data-dir", type=str, help="directory where musicnet.npz is")
-    parser.add_argument("-instrument", type=str, help="type of instrument to process data for")
+    parser.add_argument("-data-dir", type=str, default=f'{ROOT_DIR}/data',
+                        help="directory where musicnet.npz is")
+    parser.add_argument("-instrument", type=str, default='cello', 
+                        help="type of instrument to process data for")
     args = parser.parse_args()
     
     main(args)

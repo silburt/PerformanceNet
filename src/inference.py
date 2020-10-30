@@ -57,6 +57,12 @@ class AudioSynthesizer():
         spec = torch.cuda.FloatTensor(magnitude)
         #X = torch.Tensor(score)
         #y = torch.Tensor(spec)
+
+        # reshape into a batch with proper dims
+        # TODO: Make this better...
+        pianoroll = pianoroll[:860, :128].unsqueeze(0)
+        onoff = onoff[:860, :128].unsqueeze(0)
+        spec = spec[:1025, :860].unsqueeze(0)
         return pianoroll, onoff, spec
 
 

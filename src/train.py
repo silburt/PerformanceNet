@@ -37,7 +37,7 @@ class hyperparams(object):
 
 class Dataseth5py(torch.utils.data.Dataset):
     # https://discuss.pytorch.org/t/how-to-speed-up-the-data-loader/13740/3
-    def __init__(self, in_file, instr, n_read=None):
+    def __init__(self, in_file, instr, data_type='train', n_read=None):
         super(Dataseth5py, self).__init__()
 
         self.dataset = h5py.File(in_file, 'r')
@@ -47,15 +47,18 @@ class Dataseth5py(torch.utils.data.Dataset):
         # rest of the profiling times are: concat/transpose ~ 0.005s, FloatTensor ~ 0.02 
         # (and thus, after this loading issue is solved FloatTensor becomes the bottleneck unless it 
         # can be moved to the main train() function and be applied to batches vs individual items here)
-        if n_read is not None:
-            self.score = self.dataset['{}_pianoroll'.format(instr)][:n_read]
-            self.spec = self.dataset['{}_spec'.format(instr)][:n_read]
-            self.onoff = self.dataset['{}_onoff'.format(instr)][:n_read]
+        if data_type == 'train':
+            index_i = 200
+            index_f = 1000000 if n_read is None else (index_i + n_read)
+        elif data_type == 'test':
+            index_i = 0
+            index_f = 200
         else:
-            self.score = self.dataset['{}_pianoroll'.format(instr)][:]
-            self.spec = self.dataset['{}_spec'.format(instr)][:]
-            self.onoff = self.dataset['{}_onoff'.format(instr)][:]
-
+            raise ValueError(f'data type {data_type} not recognized')
+        
+        self.score = self.dataset['{}_pianoroll'.format(instr)][index_i: index_f]
+        self.spec = self.dataset['{}_spec'.format(instr)][index_i: index_f]
+        self.onoff = self.dataset['{}_onoff'.format(instr)][index_i: index_f]
         self.n_data = self.spec.shape[0]
 
     def __getitem__(self, index):
@@ -79,13 +82,12 @@ class Dataseth5py(torch.utils.data.Dataset):
 
 
 def Process_Data(instr, exp_dir, data_dir, n_read=None, batch_size=16):
-    dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr, n_read)
+    train_dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr, 'train', n_read)
+    test_dataset = Dataseth5py(os.path.join(data_dir, f'train_data_{instr}.hdf5'), instr, 'test')
 
     kwargs = {}
-    train_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=True, **kwargs)
-
-    # TODO: This needs to be an *actual* test set
-    test_loader = utils.DataLoader(dataset, batch_size=batch_size)
+    train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
+    test_loader = utils.DataLoader(test_dataset, batch_size=batch_size)
     return train_loader, test_loader
 
 
@@ -97,10 +99,10 @@ def train(model, epoch, train_loader, optimizer, iter_train_loss):
         split = torch.split(data, 128, dim=1)
         loss_function = nn.MSELoss()
         if CUDA_FLAG == 1:
-            y_pred = model(split[0].cuda(), target.cuda(), split[1].cuda())
+            y_pred = model(split[0].cuda(), split[1].cuda())
             loss = loss_function(y_pred, target.cuda())
         else:
-            y_pred = model(split[0], target, split[1])  # A.S. adding target (spectrogram) to input as extra conditioning
+            y_pred = model(split[0], split[1]) 
             loss = loss_function(y_pred, target)
         
         loss.backward()
@@ -123,10 +125,10 @@ def test(model, epoch, test_loader, scheduler, iter_test_loss):
             split = torch.split(data, 128, dim=1)
             loss_function = nn.MSELoss()
             if CUDA_FLAG == 1:
-                y_pred = model(split[0].cuda(), target.cuda(), split[1].cuda())
+                y_pred = model(split[0].cuda(), split[1].cuda())
                 loss = loss_function(y_pred, target.cuda())
             else:
-                y_pred = model(split[0], target, split[1])
+                y_pred = model(split[0], split[1])
                 loss = loss_function(y_pred, target)
             iter_test_loss.append(loss.item())
             test_loss += loss    
