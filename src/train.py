@@ -14,9 +14,11 @@ import json
 from model import PerformanceNet
 cuda = torch.device("cuda")
 
-from process_data import hyperparams as pp_hp
+from process_data import hyperparams as pp_hyperparams
 import random
 random.seed(42)
+
+pp_hp = pp_hyperparams()
 
 class hyperparams(object):
     def __init__(self):
@@ -79,7 +81,7 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
         The input data are the pianoroll, onoff, target_coords
         The spectrogram is calculated on-the-fly (to save space) for the corresponding pianoroll/onoff
         '''
-        pianoroll, onoff, audio_chunk_rand, audio_chunk = self.select_piano_and_audio_chunks(index, self.instr)
+        pianoroll, onoff, audio_chunk = self.select_piano_and_audio_chunks(index, self.instr)
 
         # prepare pianoroll
         pianoroll = np.concatenate((pianoroll, onoff), axis=-1)
@@ -100,7 +102,7 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
 
 
 
-def Process_Data(instr, exp_dir):
+def Process_Data(instr, exp_dir, batch_size=16):
     print("loading training data")
     train_dataset = DatasetPreprocessRealTime('data/train_data.hdf5', instr, 'train')
     print("loading test data")

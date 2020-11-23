@@ -6,6 +6,7 @@ from scipy import fft
 import pickle
 import h5py
 import sys
+import os
 
 
 IN_DATA_DIR = "data/"
@@ -47,10 +48,10 @@ def get_data():
         song_ids = []
         for song in hp.instrument[inst]: 
             a,b = dataset[str(song)] 
-            audio.append(a) # these names were wrong 
+            audio.append(a) # these names were backwards
             score.append(b)
             song_ids.append(song)
-            train_data.create_dataset(inst + "_audio_" + str(song), data=audio)
+            train_data.create_dataset(inst + "_audio_" + str(song), data=audio[-1])
 
         spec_coords_list, score_list, onoff_list = process_data(audio,score,inst,song_ids)   
         train_data.create_dataset(inst + "_spec_coords", data=spec_coords_list)
