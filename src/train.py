@@ -37,7 +37,7 @@ class hyperparams(object):
 TEST_TRAIN_SPLIT_PERCENTAGE = 0.2
 
 class DatasetPreprocessRealTime(torch.utils.data.Dataset):
-    def __init__(self, in_file, instr, data_type='train'):
+    def __init__(self, in_file, instr, exp_dir, data_type='train'):
         super(DatasetPreprocessRealTime, self).__init__()
 
         self.dataset = h5py.File(in_file, 'r')
@@ -62,16 +62,37 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
 
         self.n_data = self.pianoroll.shape[0]
         self.instr = instr
+        self.exp_dir = exp_dir
 
 
-    def select_piano_and_audio_chunks(self, index, inst):
+    def write_test_data(self):
+        print("Writing test data to data/test_X.npy")
+        score = np.concatenate((self.pianoroll, self.onoff), axis = -1)
+        X_test = np.transpose(score, (0,2,1))
+
+        specs = []
+        for index in range(self.n_data):
+            _, _, audio_chunk = self.select_piano_and_audio_chunks(index)
+            spec = librosa.stft(audio_chunk, n_fft= pp_hp.n_fft, hop_length = pp_hp.stride)
+            y = np.log1p(np.abs(spec)**2)
+            specs.append(y)
+        Y_test = np.array(specs)
+
+        test_data_dir = os.path.join(self.exp_dir, 'test_data')
+        os.makedirs(test_data_dir)
+        
+        np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
+        np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)   
+
+
+    def select_piano_and_audio_chunks(self, index):
        # piano
         pianoroll = self.pianoroll[index]
         onoff = self.onoff[index]
 
         # get correct audio_chunk of selected style for output target
         song_id, chunk_begin_index, chunk_end_index = self.target_coords[index].astype('int')
-        audio_chunk = self.audios[inst + "_audio_" + str(song_id)][chunk_begin_index: chunk_end_index]
+        audio_chunk = self.audios[self.instr + "_audio_" + str(song_id)][chunk_begin_index: chunk_end_index]
 
         return pianoroll, onoff, audio_chunk
 
@@ -81,18 +102,20 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
         The input data are the pianoroll, onoff, target_coords
         The spectrogram is calculated on-the-fly (to save space) for the corresponding pianoroll/onoff
         '''
-        pianoroll, onoff, audio_chunk = self.select_piano_and_audio_chunks(index, self.instr)
+        score, onoff, audio_chunk = self.select_piano_and_audio_chunks(index)
 
         # prepare pianoroll
-        pianoroll = np.concatenate((pianoroll, onoff), axis=-1)
-        pianoroll = np.transpose(pianoroll, (1, 0))
+        score = np.concatenate((score, onoff),axis = -1)
+        score = np.transpose(score,(0,2,1))
+        #pianoroll = np.concatenate((pianoroll, onoff), axis=-1)
+        #pianoroll = np.transpose(pianoroll, (1, 0))
 
         # target spectrogram
         spec = librosa.stft(audio_chunk, n_fft= pp_hp.n_fft, hop_length = pp_hp.stride)
         y = np.log1p(np.abs(spec)**2)
 
         # cudify
-        X = torch.cuda.FloatTensor(pianoroll)
+        X = torch.cuda.FloatTensor(score)
         y = torch.cuda.FloatTensor(y)
 
         return X, y
@@ -104,9 +127,10 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
 
 def Process_Data(instr, exp_dir, batch_size=16):
     print("loading training data")
-    train_dataset = DatasetPreprocessRealTime('data/train_data.hdf5', instr, 'train')
+    train_dataset = DatasetPreprocessRealTime('data/train_data.hdf5', instr, exp_dir, 'train')
     print("loading test data")
-    test_dataset = DatasetPreprocessRealTime('data/train_data.hdf5', instr, 'test')
+    test_dataset = DatasetPreprocessRealTime('data/train_data.hdf5', instr, exp_dir, 'test')
+    test_dataset.write_test_data()
 
     kwargs = {}
     train_loader = utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
@@ -118,16 +142,16 @@ def Process_Data(instr, exp_dir, batch_size=16):
 #     score = dataset['{}_pianoroll'.format(instr)][:]
 #     spec = dataset['{}_spec'.format(instr)][:]
 #     onoff = dataset['{}_onoff'.format(instr)][:]
-#     score = np.concatenate((score, onoff),axis = -1)
-#     score = np.transpose(score,(0,2,1))
+    # score = np.concatenate((score, onoff),axis = -1)
+    # score = np.transpose(score,(0,2,1))
 
 #     X_train, X_test, Y_train, Y_test = train_test_split(score, spec, test_size=0.2, random_state=42) 
     
-#     test_data_dir = os.path.join(exp_dir,'test_data')
-#     os.makedirs(test_data_dir)
+    # test_data_dir = os.path.join(exp_dir,'test_data')
+    # os.makedirs(test_data_dir)
     
-#     np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
-#     np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
+    # np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
+    # np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)    
     
 #     train_dataset = utils.TensorDataset(torch.Tensor(X_train, device=cuda), torch.Tensor(Y_train, device=cuda))
 #     train_loader = utils.DataLoader(train_dataset, batch_size=16, shuffle=True)
