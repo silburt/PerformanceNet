@@ -82,7 +82,8 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
         os.makedirs(test_data_dir)
         
         np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
-        np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)   
+        np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)
+        print("Successfully wrote test data to data/test_X.npy")
 
 
     def select_piano_and_audio_chunks(self, index):
@@ -105,10 +106,10 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
         score, onoff, audio_chunk = self.select_piano_and_audio_chunks(index)
 
         # prepare pianoroll
-        score = np.concatenate((score, onoff),axis = -1)
-        score = np.transpose(score,(0,2,1))
-        #pianoroll = np.concatenate((pianoroll, onoff), axis=-1)
-        #pianoroll = np.transpose(pianoroll, (1, 0))
+        #score = np.concatenate((score, onoff),axis = -1)
+        #score = np.transpose(score,(0,2,1))
+        pianoroll = np.concatenate((pianoroll, onoff), axis=-1)
+        pianoroll = np.transpose(pianoroll, (1, 0))
 
         # target spectrogram
         spec = librosa.stft(audio_chunk, n_fft= pp_hp.n_fft, hop_length = pp_hp.stride)
