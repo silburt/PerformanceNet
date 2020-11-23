@@ -66,7 +66,10 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
 
 
     def write_test_data(self):
-        print("Writing test data to data/test_X.npy")
+        test_data_dir = os.path.join(self.exp_dir, 'test_data')
+        os.makedirs(test_data_dir)
+        
+        print(f"Writing test data to {test_data_dir}")
         score = np.concatenate((self.pianoroll, self.onoff), axis = -1)
         X_test = np.transpose(score, (0,2,1))
 
@@ -77,13 +80,10 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
             y = np.log1p(np.abs(spec)**2)
             specs.append(y)
         Y_test = np.array(specs)
-
-        test_data_dir = os.path.join(self.exp_dir, 'test_data')
-        os.makedirs(test_data_dir)
         
         np.save(os.path.join(test_data_dir, "test_X.npy"), X_test)
         np.save(os.path.join(test_data_dir, "test_Y.npy"), Y_test)
-        print("Successfully wrote test data to data/test_X.npy")
+        print("Successfully wrote test data")
 
 
     def select_piano_and_audio_chunks(self, index):
