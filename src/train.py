@@ -103,7 +103,7 @@ class DatasetPreprocessRealTime(torch.utils.data.Dataset):
         The input data are the pianoroll, onoff, target_coords
         The spectrogram is calculated on-the-fly (to save space) for the corresponding pianoroll/onoff
         '''
-        score, onoff, audio_chunk = self.select_piano_and_audio_chunks(index)
+        pianoroll, onoff, audio_chunk = self.select_piano_and_audio_chunks(index)
 
         # prepare pianoroll
         #score = np.concatenate((score, onoff),axis = -1)
