@@ -8,6 +8,8 @@ import h5py
 import sys
 
 
+IN_DATA_DIR = "data/"
+
 class hyperparams(object):
     def __init__(self):
         self.sr = 44100 # Sampling rate.
@@ -34,7 +36,8 @@ def get_data():
         Process cello, violin, flute 
     
     '''
-    dataset = np.load(open('data/musicnet.npz','rb'), encoding = 'latin1', allow_pickle=True)
+    in_data_path = os.path.join(IN_DATA_DIR, 'musicnet.npz')
+    dataset = np.load(open(in_data_path,'rb'), encoding = 'latin1', allow_pickle=True)
     train_data = h5py.File('data/train_data.hdf5', 'w') 
 
     for inst in hp.instrument:
